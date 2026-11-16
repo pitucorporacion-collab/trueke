@@ -10,7 +10,7 @@ const demoSeed = [
   { id:"demo-3", display_name:"Lucía", offer:"Plantas de interior y macetas", looking_for:"Libros, estantes o artículos para el hogar", description:"Puedo acercarlas dentro de Río Grande.", image_url:"", user_id:"demo-lucia" }
 ];
 const normalizePhone = (value) => {
-  const digits = value.replace(/\\D/g, "");
+  const digits = value.replace(/\D/g, "");
   if (digits.startsWith("549")) return "+" + digits;
   if (digits.startsWith("54")) return "+" + digits;
   if (digits.length === 10) return "+549" + digits;
