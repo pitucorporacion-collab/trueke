@@ -219,7 +219,12 @@ export default function App() {
     const {error}=await db.from("app_settings").upsert({key:"invite_code",value:inviteCode},{onConflict:"key"});
     setNotice(error ? error.message : "Código general actualizado.");
   }
-  useEffect(() => {\n    if (activeMatch && db && session?.user) {\n      db.from("messages").select("*").eq("match_id",activeMatch.id).order("created_at").then(({data})=>setMessages(data||[]));\n    }\n  }, [activeMatch,session]);\n  async function sendMessage(e) {
+  useEffect(() => {
+    if (activeMatch && db && session?.user) {
+      db.from("messages").select("*").eq("match_id",activeMatch.id).order("created_at").then(({data})=>setMessages(data||[]));
+    }
+  }, [activeMatch,session]);
+  async function sendMessage(e) {
     e.preventDefault(); if(!messageText.trim() || !activeMatch) return;
     if (demo) {setMessages([...messages,{id:Date.now(),body:messageText,sender_id:"demo-user"}]);setMessageText("");return;}
     const {error}=await db.from("messages").insert({match_id:activeMatch.id,sender_id:session.user.id,body:messageText});
