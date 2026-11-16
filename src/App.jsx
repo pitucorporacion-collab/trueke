@@ -106,12 +106,13 @@ export default function App() {
     if (error) setNotice(error.message); else { setNotice("Propuesta aceptada. Se habilitó el chat."); await loadProposals(); await loadMatches(); }
   }
   async function loadAdmin() {
-    const [{data: p},{data:a},{data:s}] = await Promise.all([
+    const [{data: p},{data:a},{data:s},{data:r}] = await Promise.all([
       db.from("profiles").select("*").order("created_at",{ascending:false}),
       db.from("authorized_phones").select("*").order("created_at",{ascending:false}),
-      db.from("app_settings").select("value").eq("key","invite_code").maybeSingle()
+      db.from("app_settings").select("value").eq("key","invite_code").maybeSingle(),
+      db.from("reports").select("*, reporter:profiles!reports_reporter_id_fkey(display_name), posts(offer)").order("created_at",{ascending:false})
     ]);
-    setPeople(p || []); setAuthorized(a || []); setInviteCode(s?.value || "");
+    setPeople(p || []); setAuthorized(a || []); setInviteCode(s?.value || ""); setReports(r || []);
   }
   async function authenticate(e) {
     e.preventDefault(); setBusy(true); setNotice("");
