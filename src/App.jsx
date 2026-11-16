@@ -107,7 +107,7 @@ export default function App() {
         const { data: allowed, error: validationError } = await db.rpc("validate_registration", { p_phone:normalized, p_invite_code:invite.trim() });
         if (validationError) throw validationError;
         if (!allowed) throw new Error("El teléfono no está autorizado o el código es incorrecto. Contactá al administrador.");
-        const { error } = await db.auth.signUp({ phone:normalized, password });
+        const { error } = await db.auth.signUp({ phone:normalized, password, options:{ data:{ display_name:name.trim() } } });
         if (error) throw error;
         setNotice("Registro enviado. Tu cuenta queda pendiente de aprobación del administrador. Si no ingresaste automáticamente, iniciá sesión.");
         setMode("login");
