@@ -127,7 +127,7 @@ declare
   created_match uuid;
 begin
   select * into proposal from public.direct_proposals where id = p_proposal_id for update;
-  if proposal.id is null or proposal.recipient_id <> auth.uid() or proposal.status <> 'pending' then
+  if not public.current_user_is_active() then\n    raise exception 'Cuenta no habilitada';\n  end if;\n  if proposal.id is null or proposal.recipient_id <> auth.uid() or proposal.status <> 'pending' then
     raise exception 'Propuesta no disponible';
   end if;
   update public.direct_proposals set status = 'accepted' where id = p_proposal_id;
