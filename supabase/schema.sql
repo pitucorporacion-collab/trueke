@@ -236,9 +236,8 @@ create policy "match participants send messages" on public.messages for insert w
 drop policy if exists "proposal participants read" on public.direct_proposals;
 create policy "proposal participants read" on public.direct_proposals for select using (sender_id = auth.uid() or recipient_id = auth.uid() or public.current_user_is_admin());
 drop policy if exists "active users send proposals" on public.direct_proposals;
-create policy "active users send proposals" on public.direct_proposals for insert with check (sender_id = auth.uid() and public.current_user_is_active() and recipient_id <> auth.uid());
+create policy "active users send proposals" on public.direct_proposals for insert with check (sender_id = auth.uid() and public.current_user_is_active() and recipient_id <> auth.uid() and exists(select 1 from public.posts p where p.id = post_id and p.user_id = recipient_id and p.active = true));
 drop policy if exists "recipient updates proposals" on public.direct_proposals;
-create policy "recipient updates proposals" on public.direct_proposals for update using (recipient_id = auth.uid() or public.current_user_is_admin()) with check (recipient_id = auth.uid() or public.current_user_is_admin());
 
 grant execute on function public.validate_registration(text,text) to anon, authenticated;
 grant execute on function public.accept_direct_proposal(uuid) to authenticated;
