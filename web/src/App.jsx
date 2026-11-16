@@ -6,7 +6,7 @@ const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 const supabase = supabaseUrl && supabaseKey ? createClient(supabaseUrl, supabaseKey) : null;
 
-const categories = ['Todo', 'Hogar', 'Tecnología', 'Ropa', 'Herramientas', 'Servicios', 'Otros'];
+const categories = ['Todo', 'Con fotos', 'Río Grande', 'Tolhuin', 'Servicios'];
 const demoListings = [
   { id:'demo-1', title:'Bicicleta rodado 29', description:'En buen estado, lista para usar. Tiene algunos detalles de uso.', looking_for:'Una mesa de comedor o herramientas.', location:'Río Grande', created_at:new Date().toISOString(), profiles:{display_name:'Mariano'}, category:'Deportes', demo:true },
   { id:'demo-2', title:'Clases de guitarra', description:'Clases para principiantes. Acordamos días y horarios.', looking_for:'Ayuda con pintura o arreglos del hogar.', location:'Río Grande', created_at:new Date().toISOString(), profiles:{display_name:'Sofi'}, category:'Servicios', demo:true },
@@ -88,7 +88,7 @@ function App() {
   const filtered = useMemo(() => listings.filter(item => {
     const text = [item.title,item.description,item.looking_for,item.location,item.profiles?.display_name].join(' ').toLowerCase();
     const matches = text.includes(query.toLowerCase());
-    const categoryMatch = category === 'Todo' || (category === 'Servicios' ? /servicio|clase|reparación|ayuda/i.test(text) : true);
+    const categoryMatch = category === 'Todo' || (category === 'Con fotos' ? (item.listing_images || []).length > 0 : category === 'Servicios' ? /servicio|clase|reparación|ayuda/i.test(text) : item.location?.toLowerCase().includes(category.toLowerCase()));
     return matches && categoryMatch;
   }),[listings,query,category]);
 
