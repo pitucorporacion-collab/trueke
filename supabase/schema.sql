@@ -102,7 +102,7 @@ $$;
 
 create or replace function public.protect_profile_fields()
 returns trigger language plpgsql security definer set search_path = public
-as $
+as $$
 begin
   if auth.uid() = old.id and not public.current_user_is_admin() then
     new.role := old.role;
@@ -111,7 +111,7 @@ begin
   end if;
   return new;
 end;
-$;
+$$;
 
 drop trigger if exists protect_profile_fields_trigger on public.profiles;
 create trigger protect_profile_fields_trigger before update on public.profiles
@@ -119,7 +119,7 @@ for each row execute procedure public.protect_profile_fields();
 
 create or replace function public.accept_direct_proposal(p_proposal_id uuid)
 returns uuid language plpgsql security definer set search_path = public
-as $
+as $$
 declare
   proposal public.direct_proposals;
   a uuid;
@@ -127,7 +127,10 @@ declare
   created_match uuid;
 begin
   select * into proposal from public.direct_proposals where id = p_proposal_id for update;
-  if not public.current_user_is_active() then\n    raise exception 'Cuenta no habilitada';\n  end if;\n  if proposal.id is null or proposal.recipient_id <> auth.uid() or proposal.status <> 'pending' then
+  if not public.current_user_is_active() then
+    raise exception 'Cuenta no habilitada';
+  end if;
+  if proposal.id is null or proposal.recipient_id <> auth.uid() or proposal.status <> 'pending' then
     raise exception 'Propuesta no disponible';
   end if;
   update public.direct_proposals set status = 'accepted' where id = p_proposal_id;
@@ -139,7 +142,7 @@ begin
   returning id into created_match;
   return created_match;
 end;
-$;
+$$;
 
 create or replace function public.handle_new_user()
 returns trigger language plpgsql security definer set search_path = public
