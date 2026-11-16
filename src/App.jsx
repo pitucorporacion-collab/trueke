@@ -70,6 +70,7 @@ export default function App() {
     loadPosts();
     if (profile.role === "admin") loadAdmin();
     loadMatches();
+    loadProposals();
   }, [profile]);
 
   async function loadProfile(id) {
@@ -83,6 +84,23 @@ export default function App() {
   async function loadMatches() {
     const { data } = await db.from("matches").select("*, one:profiles!matches_user_one_fkey(display_name), two:profiles!matches_user_two_fkey(display_name)").order("created_at", {ascending:false});
     setMatches(data || []);
+  }
+  async function loadProposals() {
+    const { data } = await db.from("direct_proposals").select("*, sender:profiles!direct_proposals_sender_id_fkey(display_name,phone), posts(offer,looking_for)").eq("recipient_id",session.user.id).eq("status","pending").order("created_at",{ascending:false});
+    setProposals(data || []);
+  }
+  async function submitProposal(e) {
+    e.preventDefault();
+    if (!proposalPost || !proposalText.trim()) return;
+    if (demo) { setNotice("Propuesta de demostración preparada. En la versión conectada llegará al dueño de la publicación."); setProposalPost(null); setProposalText(""); return; }
+    const { error } = await db.from("direct_proposals").insert({post_id:proposalPost.id,sender_id:session.user.id,recipient_id:proposalPost.user_id,message:proposalText.trim()});
+    if (error) setNotice(error.message); else setNotice("Propuesta enviada. Cuando la acepten, se habilitará el chat.");
+    setProposalPost(null); setProposalText("");
+  }
+  async function acceptProposal(proposal) {
+    if (demo) { setProposals(proposals.filter(p=>p.id!==proposal.id)); setMatches([...matches,{id:"demo-match-"+Date.now(),one:{display_name:"Vos"},two:{display_name:proposal.sender?.display_name||"Miembro"}}]); setNotice("Propuesta aceptada. Ya pueden conversar."); return; }
+    const { error } = await db.rpc("accept_direct_proposal",{p_proposal_id:proposal.id});
+    if (error) setNotice(error.message); else { setNotice("Propuesta aceptada. Se habilitó el chat."); await loadProposals(); await loadMatches(); }
   }
   async function loadAdmin() {
     const [{data: p},{data:a},{data:s}] = await Promise.all([
