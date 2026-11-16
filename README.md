@@ -1,6 +1,6 @@
 # Trueke PRG
 
-Aplicación web instalable (PWA-ready) para una comunidad privada de trueques de Río Grande. No incluye pagos, precios ni transferencias.
+Aplicación web adaptable a celulares y computadoras para una comunidad privada de trueques de Río Grande. No incluye pagos, precios ni transferencias.
 
 ## Funciones incluidas
 
@@ -8,7 +8,8 @@ Aplicación web instalable (PWA-ready) para una comunidad privada de trueques de
 - Validación del teléfono contra una lista privada de números autorizados.
 - Alta pendiente de aprobación administrativa.
 - Publicaciones con foto, qué ofrecés y qué buscás en un solo formulario.
-- Intereses, coincidencias mutuas y mensajería privada.
+- Intereses mutuos, propuestas directas, coincidencias y mensajería privada.
+- Denuncias de publicaciones y herramientas de moderación.
 - Denuncias y panel de administración.
 - Diseño adaptable a celular y computadora.
 
