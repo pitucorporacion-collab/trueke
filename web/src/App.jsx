@@ -118,13 +118,14 @@ function App() {
       const cleanPhone = phone.replace(/\D/g,'');
       if (!/^2964\d{6}$/.test(cleanPhone)) throw new Error('El usuario debe tener 10 números: 2964 y otros 6 números.');
       const phoneForAuth = '+549' + cleanPhone;
+      const emailForAuth = cleanPhone + '@usuarios.trueke-prg.app';
       if (authMode === 'register') {
-        const {data,error} = await supabase.functions.invoke('trueke-register',{body:{phone:phoneForAuth,password,group_code:groupCode,display_name:displayName}});
+        const {data,error} = await supabase.functions.invoke('trueke-register',{body:{phone:phoneForAuth,email:emailForAuth,password,group_code:groupCode,display_name:displayName}});
         if (error || data?.error) throw new Error(data?.error || 'No se pudo completar el registro.');
-        const {error:loginError} = await supabase.auth.signInWithPassword({phone:phoneForAuth,password});
+        const {error:loginError} = await supabase.auth.signInWithPassword({email:emailForAuth,password});
         if (loginError) throw loginError;
       } else {
-        const {error} = await supabase.auth.signInWithPassword({phone:phoneForAuth,password});
+        const {error} = await supabase.auth.signInWithPassword({email:emailForAuth,password});
         if (error) throw error;
       }
     } catch(err) { setAuthError(err.message || 'Ocurrió un error. Intentá nuevamente.'); }
