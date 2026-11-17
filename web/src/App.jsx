@@ -61,6 +61,17 @@ function App() {
     loadData();
   }, [session]);
 
+  useEffect(() => {
+    if (!session || profile?.role !== 'admin') return;
+    const refreshNotifications = async () => {
+      const {data} = await supabase.from('admin_notifications').select('*').order('created_at',{ascending:false}).limit(30);
+      setNotifications(data || []);
+    };
+    refreshNotifications();
+    const timer = window.setInterval(refreshNotifications, 20000);
+    return () => window.clearInterval(timer);
+  }, [session, profile?.role]);
+
   async function loadData() {
     setLoading(true);
     const [{data:me},{data:rows,error}] = await Promise.all([
@@ -221,6 +232,8 @@ function App() {
   async function logout() { await supabase.auth.signOut(); }
 
   if (!supabase) return <div className="setup"><div className="brand-mark"><Leaf size={22}/></div><h1>Falta conectar Trueke PRG</h1><p>Configurá VITE_SUPABASE_URL y VITE_SUPABASE_PUBLISHABLE_KEY para iniciar.</p></div>;
+
+  if (session && profile && profile.is_active === false) return <main className="setup"><div className="brand-mark"><ShieldCheck size={22}/></div><h1>Acceso suspendido</h1><p>Tu cuenta está bloqueada por administración. Si creés que es un error, contactá al administrador de Trueke PRG.</p><button className="primary-btn" onClick={logout}>Cerrar sesión</button></main>;
 
   if (!session) return <main className="auth-shell">
     <section className="auth-art">
