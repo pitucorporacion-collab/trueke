@@ -23,6 +23,11 @@ function App() {
   const [reports,setReports] = useState([]);
   const [notifications,setNotifications] = useState([]);
   const [members,setMembers] = useState([]);
+  const [passwordModal,setPasswordModal] = useState(false);
+  const [passwordTarget,setPasswordTarget] = useState(null);
+  const [temporaryPassword,setTemporaryPassword] = useState('');
+  const [newOwnPassword,setNewOwnPassword] = useState('');
+  const [passwordBusy,setPasswordBusy] = useState(false);
   const [loading,setLoading] = useState(true);
   const [authMode,setAuthMode] = useState('login');
   const [authError,setAuthError] = useState('');
@@ -218,6 +223,29 @@ function App() {
     else { setNotice(active?'Miembro habilitado.':'Miembro bloqueado y sus publicaciones pausadas.'); await loadData(); }
   }
 
+  async function resetMemberPassword(member) {
+    if (!window.confirm('¿Generar una contraseña temporal nueva para '+(member.display_name || member.phone)+'? La contraseña anterior dejará de funcionar.')) return;
+    setPasswordBusy(true); setPasswordTarget(member); setTemporaryPassword(''); setPasswordModal(true); setNotice('');
+    const {data,error} = await supabase.functions.invoke('admin-reset-password',{body:{user_id:member.id}});
+    if (error || data?.error) {
+      setNotice(data?.error || error?.message || 'No se pudo restablecer la contraseña.');
+      setPasswordModal(false); setPasswordTarget(null);
+    } else {
+      setTemporaryPassword(data.temporary_password || '');
+    }
+    setPasswordBusy(false);
+  }
+
+  async function changeOwnPassword(e) {
+    e.preventDefault();
+    if (newOwnPassword.length < 8) { setNotice('La contraseña debe tener al menos 8 caracteres.'); return; }
+    setPasswordBusy(true);
+    const {error} = await supabase.auth.updateUser({password:newOwnPassword});
+    setPasswordBusy(false);
+    if (error) setNotice(error.message);
+    else { setNotice('Tu contraseña fue actualizada correctamente.'); setPasswordModal(false); setNewOwnPassword(''); }
+  }
+
   async function updateReport(report,status) {
     const {error} = await supabase.from('reports').update({status}).eq('id',report.id);
     if (error) setNotice(error.message); else { setNotice('Denuncia actualizada.'); await loadData(); }
@@ -303,14 +331,15 @@ function App() {
         <div className="admin-stats"><div><strong>{reports.filter(r=>r.status==='open').length}</strong><span>Denuncias pendientes</span></div><div><strong>{members.length}</strong><span>Miembros registrados</span></div><div><strong>{members.filter(m=>!m.is_active).length}</strong><span>Bloqueados</span></div></div>
         <div className="admin-section-head"><h2><Flag size={19}/> Denuncias</h2><button className="outline-btn" onClick={markNotificationsRead}>Marcar avisos leídos</button></div>
         {reports.length===0?<p className="muted">Todavía no hay denuncias.</p>:reports.map(r=><article className="report-card" key={r.id}><div className="report-main"><span className={'status-pill '+r.status}>{r.status==='open'?'Pendiente':r.status==='reviewed'?'Revisada':'Cerrada'}</span><b>{r.reason}</b><p>{r.details||'Sin detalles adicionales.'}</p><small>{new Date(r.created_at).toLocaleString('es-AR')} · Publicación/usuario: {r.listing_id||r.reported_user||'—'}</small></div><div className="report-actions"><button onClick={()=>updateReport(r,'reviewed')}>Revisada</button><button onClick={()=>updateReport(r,'closed')}>Cerrar</button></div></article>)}
-        <div className="admin-section-head"><h2><Users size={19}/> Miembros</h2></div>
-        <div className="member-list">{members.map(m=><article className="member-row" key={m.id}><div className="member-avatar">{(m.display_name||'U').slice(0,1).toUpperCase()}</div><div className="member-info"><b>{m.display_name||'Sin nombre'}</b><span>{m.phone}</span></div><span className={m.is_active?'member-state active':'member-state blocked'}>{m.is_active?'Activo':'Bloqueado'}</span>{m.role!=='admin'&&<button className={m.is_active?'ban-btn':'unban-btn'} onClick={()=>setMemberActive(m,!m.is_active)}>{m.is_active?<><Ban size={15}/> Bloquear</>:<><CheckCircle2 size={15}/> Habilitar</>}</button>}</article>)}</div>
+        <div className="admin-section-head"><h2><Users size={19}/> Miembros</h2><button className="outline-btn" onClick={()=>{setPasswordTarget(null);setTemporaryPassword('');setNewOwnPassword('');setPasswordModal(true)}}>Cambiar mi contraseña</button></div>
+        <div className="member-list">{members.map(m=><article className="member-row" key={m.id}><div className="member-avatar">{(m.display_name||'U').slice(0,1).toUpperCase()}</div><div className="member-info"><b>{m.display_name||'Sin nombre'}</b><span>{m.phone}</span></div><span className={m.is_active?'member-state active':'member-state blocked'}>{m.is_active?'Activo':'Bloqueado'}</span><button className="reset-password-btn" onClick={()=>resetMemberPassword(m)}><ShieldCheck size={14}/> Contraseña</button>{m.role!=='admin'&&<button className={m.is_active?'ban-btn':'unban-btn'} onClick={()=>setMemberActive(m,!m.is_active)}>{m.is_active?<><Ban size={15}/> Bloquear</>:<><CheckCircle2 size={15}/> Habilitar</>}</button>}</article>)}</div>
         <div className="admin-section-head"><h2><Bell size={19}/> Avisos recientes</h2></div>
         {notifications.slice(0,8).map(n=><article className="notification-row" key={n.id}><span className={n.read_at?'read-dot':'unread-dot'}/><div><b>{n.title}</b><p>{n.body}</p><small>{new Date(n.created_at).toLocaleString('es-AR')}</small></div></article>)}
       </section>}
     </main>
     <footer className="footer"><a className="brand" href="#"><div className="brand-mark"><Leaf size={18}/></div><span>TRUEKE <b>PRG</b></span></a><span>Una comunidad. Muchas posibilidades.</span><span>© 2026 Trueke PRG</span></footer>
 
+    {passwordModal&&<div className="modal-backdrop" onMouseDown={e=>{if(e.target===e.currentTarget){setPasswordModal(false);setPasswordTarget(null);setTemporaryPassword('');setNewOwnPassword('')}}}><div className="create-modal password-modal"><div className="modal-head"><div><span className="eyebrow">SEGURIDAD DE LA CUENTA</span><h2>{passwordTarget?'Contraseña temporal':'Cambiar mi contraseña'}</h2><p>{passwordTarget?'Usuario: '+(passwordTarget.phone || passwordTarget.display_name):'Elegí una contraseña nueva para tu cuenta.'}</p></div><button className="icon-btn" onClick={()=>{setPasswordModal(false);setPasswordTarget(null);setTemporaryPassword('');setNewOwnPassword('')}}><X/></button></div>{passwordTarget?<div className="password-result">{passwordBusy?<p>Generando contraseña segura…</p>:temporaryPassword?<><p>Esta contraseña reemplazó la anterior. Copiala y entregásela al usuario por un canal privado. No volverá a mostrarse.</p><code>{temporaryPassword}</code><button className="primary-btn" onClick={()=>GenUI.copy(temporaryPassword)}><Check size={16}/> Copiar contraseña</button></>:<p>Preparando…</p>}</div>:<form className="create-form" onSubmit={changeOwnPassword}><label>Nueva contraseña<input type="password" value={newOwnPassword} onChange={e=>setNewOwnPassword(e.target.value)} minLength={8} autoComplete="new-password" placeholder="Mínimo 8 caracteres" required/></label><button className="primary-btn" disabled={passwordBusy || newOwnPassword.length<8}>{passwordBusy?'Guardando…':'Guardar nueva contraseña'} <ArrowRight size={16}/></button></form>}</div></div>}
     {selectedListing&&<div className="modal-backdrop" onMouseDown={e=>{if(e.target===e.currentTarget)setSelectedListing(null)}}><div className="create-modal detail-modal"><div className="modal-head"><div><span className="eyebrow">DETALLE DEL INTERCAMBIO</span><h2>{selectedListing.title}</h2><p><MapPin size={13} style={{display:'inline',verticalAlign:'middle'}}/> {selectedListing.location||'Ubicación a coordinar'}</p></div><button className="icon-btn" onClick={()=>setSelectedListing(null)}><X/></button></div>{photos[selectedListing.id]&&<img className="detail-image" src={photos[selectedListing.id]} alt={selectedListing.title}/>}<div className="detail-copy"><span className="eyebrow">QUÉ OFRECE</span><p>{selectedListing.description||'El miembro no agregó detalles adicionales.'}</p><div className="swap-for"><span>BUSCA A CAMBIO</span><b>{selectedListing.looking_for}</b></div><div className="detail-owner"><div className="mini-avatar">{(selectedListing.profiles?.display_name||'U').slice(0,1).toUpperCase()}</div><span>Publicado por <b>{selectedListing.profiles?.display_name||'Miembro'}</b></span></div><div className="detail-buttons"><button className="interest-btn" onClick={()=>{addInterest(selectedListing);setSelectedListing(null)}}><Heart size={16}/> Me interesa</button>{selectedListing.user_id!==session.user.id&&<button className="primary-btn" onClick={()=>setProposalOpen(true)}><Send size={16}/> Proponer intercambio</button>}<button className="report-link" onClick={()=>{setReportTarget({listingId:selectedListing.id,userId:selectedListing.user_id});setSelectedListing(null)}}><Flag size={15}/> Reportar</button></div></div></div></div>}
     {proposalOpen&&selectedListing&&<div className="modal-backdrop"><div className="create-modal"><div className="modal-head"><div><span className="eyebrow">PROPUESTA DIRECTA</span><h2>Proponer un intercambio</h2><p>{selectedListing.title}</p></div><button className="icon-btn" onClick={()=>setProposalOpen(false)}><X/></button></div><form className="create-form" onSubmit={sendProposal}><label>Tu propuesta<textarea value={proposalText} onChange={e=>setProposalText(e.target.value)} rows={4} maxLength={1500} placeholder="Contale qué podés ofrecer a cambio…" required/></label><button className="primary-btn" disabled={!proposalText.trim()}>Enviar propuesta <ArrowRight size={16}/></button></form></div></div>}
     {reportTarget&&<div className="modal-backdrop"><div className="create-modal"><div className="modal-head"><div><span className="eyebrow">CUIDEMOS LA COMUNIDAD</span><h2>Reportar contenido</h2><p>La denuncia llegará al administrador.</p></div><button className="icon-btn" onClick={()=>setReportTarget(null)}><X/></button></div><form className="create-form" onSubmit={submitReport}><label>Motivo<select value={reportReason} onChange={e=>setReportReason(e.target.value)}>{reasons.map(r=><option key={r}>{r}</option>)}</select></label><label>Detalles (opcional)<textarea value={reportDetails} onChange={e=>setReportDetails(e.target.value)} rows={3} maxLength={1000} placeholder="Contanos qué pasó…"/></label><button className="primary-btn">Enviar denuncia <Flag size={16}/></button></form></div></div>}
