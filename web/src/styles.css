@@ -6,3 +6,11 @@
 @media(max-width:640px){.topbar{padding:0 12px}.brand{font-size:13px;gap:7px}.brand-mark{width:32px;height:32px}.desktop-nav{display:flex;gap:9px}.nav-button{font-size:0;padding:0 2px}.nav-button:first-child{font-size:11px}.nav-button .nav-count{font-size:9px}.top-actions{gap:1px}.top-actions .user-chip{display:none}.dashboard-section{padding:32px 16px 55px}.dashboard-section>h1{font-size:28px}.admin-stats{gap:7px}.admin-stats>div{padding:12px 9px}.admin-stats strong{font-size:23px}.admin-stats span{font-size:9px}.match-card{align-items:flex-start;flex-wrap:wrap}.match-info{flex:1 1 calc(100% - 60px)}.whatsapp-btn{margin-left:56px}.proposal-card{align-items:flex-start;flex-direction:column}.report-card{flex-direction:column}.report-actions{width:100%}.report-actions button{flex:1}.member-row{gap:8px;padding:10px}.member-info span{font-size:9px}.member-state{font-size:8px}.ban-btn,.unban-btn{font-size:0;padding:8px}.ban-btn svg,.unban-btn svg{width:16px;height:16px}.admin-section-head h2{font-size:16px}.admin-section-head .outline-btn{font-size:9px;padding:8px}.card-actions{gap:5px}.interest-btn{font-size:9px;padding:7px}.detail-buttons .primary-btn{font-size:10px;padding:10px}.nav-button:nth-child(2){font-size:10px}}
 
 @media(max-width:640px){.nav-button:nth-child(3){font-size:10px}}
+
+.reset-password-btn{border:1px solid #dce5d9;background:#f3f7f1;color:#3f684b;border-radius:7px;padding:8px 10px;display:flex;align-items:center;gap:6px;font-size:10px;font-weight:800;white-space:nowrap}
+.password-modal{max-width:480px}
+.password-result{display:grid;gap:14px}
+.password-result p{font-size:12px;line-height:1.6;color:#758278;margin:0}
+.password-result code{display:block;overflow-wrap:anywhere;background:#f2f5ef;border:1px dashed #cbd9c7;border-radius:10px;padding:15px;color:#234b3a;font-size:15px;font-weight:800;letter-spacing:.04em}
+.password-result .primary-btn{justify-content:center}
+@media(max-width:640px){.reset-password-btn{font-size:0;padding:8px}.reset-password-btn svg{width:16px;height:16px}.member-row{flex-wrap:wrap}.member-info{flex:1 1 45%}}
