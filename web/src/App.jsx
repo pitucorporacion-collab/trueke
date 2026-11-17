@@ -72,7 +72,7 @@ function App() {
   async function handleAuth(e) {
     e.preventDefault(); setAuthError(''); setAuthBusy(true);
     try {
-      const cleanPhone = phone.trim().replace(/[\s().-]/g,'');
+      const cleanPhone = phone.trim().replace(/\D/g,'');
       if (authMode === 'register') {
         const {data,error} = await supabase.functions.invoke('trueke-register',{body:{phone:cleanPhone,password,group_code:groupCode,display_name:displayName}});
         if (error || data?.error) throw new Error(data?.error || 'No se pudo completar el registro.');
@@ -150,7 +150,7 @@ function App() {
         <p className="muted">{authMode==='login'?'Ingresá con tu teléfono y contraseña.':'El acceso es privado para miembros autorizados.'}</p>
         <form onSubmit={handleAuth}>
           {authMode==='register' && <label>Cómo te llamás<input value={displayName} onChange={e=>setDisplayName(e.target.value)} placeholder="Tu nombre" required maxLength={60}/></label>}
-          <label>Teléfono<input value={phone} onChange={e=>setPhone(e.target.value)} placeholder="+54 9 ..." autoComplete="tel" required/></label>
+          <label>Teléfono (tu usuario)<input type="tel" inputMode="tel" value={phone} onChange={e=>setPhone(e.target.value)} placeholder="549296..." autoComplete="tel" required/><small>Ingresalo con código de país. Podés escribirlo con o sin +, espacios o guiones.</small></label>
           <label>Contraseña<input type="password" value={password} onChange={e=>setPassword(e.target.value)} placeholder="Mínimo 8 caracteres" autoComplete={authMode==='login'?'current-password':'new-password'} minLength={8} required/></label>
           {authMode==='register' && <label>Código privado del grupo<input value={groupCode} onChange={e=>setGroupCode(e.target.value.toUpperCase())} placeholder="Código de acceso" required autoComplete="off"/></label>}
           {authError && <div className="error-box">{authError}</div>}
