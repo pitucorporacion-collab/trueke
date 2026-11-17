@@ -72,16 +72,16 @@ function App() {
   async function handleAuth(e) {
     e.preventDefault(); setAuthError(''); setAuthBusy(true);
     try {
-      const cleanPhone = phone.trim().replace(/\D/g,'');
-      const phoneForAuth = authMode === 'register' ? '+' + cleanPhone : cleanPhone;
+      const cleanPhone = phone.replace(/\D/g,'');
+      if (!/^2964\d{6}$/.test(cleanPhone)) throw new Error('El usuario debe tener 10 números: 2964 y otros 6 números.');
+      const phoneForAuth = `+549${cleanPhone}`;
       if (authMode === 'register') {
         const {data,error} = await supabase.functions.invoke('trueke-register',{body:{phone:phoneForAuth,password,group_code:groupCode,display_name:displayName}});
         if (error || data?.error) throw new Error(data?.error || 'No se pudo completar el registro.');
         const {error:loginError} = await supabase.auth.signInWithPassword({phone:phoneForAuth,password});
         if (loginError) throw loginError;
       } else {
-        let {error} = await supabase.auth.signInWithPassword({phone:cleanPhone,password});
-        if (error) ({error} = await supabase.auth.signInWithPassword({phone:`+${cleanPhone}`,password}));
+        const {error} = await supabase.auth.signInWithPassword({phone:phoneForAuth,password});
         if (error) throw error;
       }
     } catch(err) { setAuthError(err.message || 'Ocurrió un error. Intentá nuevamente.'); }
@@ -152,7 +152,7 @@ function App() {
         <p className="muted">{authMode==='login'?'Ingresá con tu teléfono y contraseña.':'El acceso es privado para miembros autorizados.'}</p>
         <form onSubmit={handleAuth}>
           {authMode==='register' && <label>Cómo te llamás<input value={displayName} onChange={e=>setDisplayName(e.target.value)} placeholder="Tu nombre" required maxLength={60}/></label>}
-          <label>Teléfono (tu usuario)<input type="tel" inputMode="tel" value={phone} onChange={e=>setPhone(e.target.value)} placeholder="549296..." autoComplete="tel" required/><small>Ingresalo con código de país. Podés escribirlo con o sin +, espacios o guiones.</small></label>
+          <label>Teléfono (tu usuario)<input type="tel" inputMode="numeric" value={phone} onChange={e=>setPhone(e.target.value.replace(/\D/g,'').slice(0,10))} placeholder="2964XXXXXX" autoComplete="tel" maxLength={10} minLength={10} pattern="2964[0-9]{6}" title="Debe comenzar con 2964 y tener exactamente 6 números más." required/><small>Usá 2964 seguido de 6 números. No se aceptan letras ni otros formatos.</small></label>
           <label>Contraseña<input type="password" value={password} onChange={e=>setPassword(e.target.value)} placeholder="Mínimo 8 caracteres" autoComplete={authMode==='login'?'current-password':'new-password'} minLength={8} required/></label>
           {authMode==='register' && <label>Código privado del grupo<input value={groupCode} onChange={e=>setGroupCode(e.target.value.toUpperCase())} placeholder="Código de acceso" required autoComplete="off"/></label>}
           {authError && <div className="error-box">{authError}</div>}
