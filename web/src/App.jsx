@@ -73,13 +73,15 @@ function App() {
     e.preventDefault(); setAuthError(''); setAuthBusy(true);
     try {
       const cleanPhone = phone.trim().replace(/\D/g,'');
+      const phoneForAuth = authMode === 'register' ? \`+\${cleanPhone}\` : cleanPhone;
       if (authMode === 'register') {
-        const {data,error} = await supabase.functions.invoke('trueke-register',{body:{phone:cleanPhone,password,group_code:groupCode,display_name:displayName}});
+        const {data,error} = await supabase.functions.invoke('trueke-register',{body:{phone:phoneForAuth,password,group_code:groupCode,display_name:displayName}});
         if (error || data?.error) throw new Error(data?.error || 'No se pudo completar el registro.');
-        const {error:loginError} = await supabase.auth.signInWithPassword({phone:cleanPhone,password});
+        const {error:loginError} = await supabase.auth.signInWithPassword({phone:phoneForAuth,password});
         if (loginError) throw loginError;
       } else {
-        const {error} = await supabase.auth.signInWithPassword({phone:cleanPhone,password});
+        let {error} = await supabase.auth.signInWithPassword({phone:cleanPhone,password});
+        if (error) ({error} = await supabase.auth.signInWithPassword({phone:`+${cleanPhone}`,password}));
         if (error) throw error;
       }
     } catch(err) { setAuthError(err.message || 'Ocurrió un error. Intentá nuevamente.'); }
