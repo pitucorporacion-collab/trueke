@@ -29,13 +29,10 @@ function App() {
   const [newOwnPassword,setNewOwnPassword] = useState('');
   const [passwordBusy,setPasswordBusy] = useState(false);
   const [loading,setLoading] = useState(true);
-  const [authMode,setAuthMode] = useState('login');
   const [authError,setAuthError] = useState('');
   const [authBusy,setAuthBusy] = useState(false);
   const [phone,setPhone] = useState('');
   const [password,setPassword] = useState('');
-  const [groupCode,setGroupCode] = useState('');
-  const [displayName,setDisplayName] = useState('');
   const [query,setQuery] = useState('');
   const [category,setCategory] = useState('Todo');
   const [page,setPage] = useState('explore');
@@ -124,15 +121,8 @@ function App() {
       if (!/^2964\d{6}$/.test(cleanPhone)) throw new Error('El usuario debe tener 10 números: 2964 y otros 6 números.');
       const phoneForAuth = '+549' + cleanPhone;
       const emailForAuth = cleanPhone + '@usuarios.trueke-prg.app';
-      if (authMode === 'register') {
-        const {data,error} = await supabase.functions.invoke('trueke-register',{body:{phone:phoneForAuth,email:emailForAuth,password,group_code:groupCode,display_name:displayName}});
-        if (error || data?.error) throw new Error(data?.error || 'No se pudo completar el registro.');
-        const {error:loginError} = await supabase.auth.signInWithPassword({email:emailForAuth,password});
-        if (loginError) throw loginError;
-      } else {
-        const {error} = await supabase.auth.signInWithPassword({email:emailForAuth,password});
-        if (error) throw error;
-      }
+      const {error} = await supabase.auth.signInWithPassword({email:emailForAuth,password});
+      if (error) throw error;
     } catch(err) { setAuthError(err.message || 'Ocurrió un error. Intentá nuevamente.'); }
     finally { setAuthBusy(false); }
   }
@@ -274,18 +264,15 @@ function App() {
     <section className="auth-panel">
       <div className="mobile-brand"><div className="brand-mark"><Leaf size={22}/></div><span>TRUEKE <b>PRG</b></span></div>
       <div className="auth-card">
-        <span className="eyebrow">{authMode==='login'?'QUÉ BUENO VERTE':'SUMATE A LA COMUNIDAD'}</span>
-        <h2>{authMode==='login'?'Entrá a tu comunidad':'Creá tu cuenta'}</h2>
-        <p className="muted">{authMode==='login'?'Ingresá con tu teléfono y contraseña.':'El acceso es privado para miembros autorizados.'}</p>
+        <span className="eyebrow">QUÉ BUENO VERTE</span>
+        <h2>Entrá a tu comunidad</h2>
+        <p className="muted">Ingresá con tu teléfono y contraseña.</p>
         <form onSubmit={handleAuth}>
-          {authMode==='register' && <label>Cómo te llamás<input value={displayName} onChange={e=>setDisplayName(e.target.value)} placeholder="Tu nombre" required maxLength={60}/></label>}
           <label>Teléfono (tu usuario)<input type="tel" inputMode="numeric" value={phone} onChange={e=>setPhone(e.target.value.replace(/\D/g,'').slice(0,10))} placeholder="2964XXXXXX" autoComplete="tel" maxLength={10} minLength={10} pattern="2964[0-9]{6}" required/><small>Usá 2964 seguido de 6 números.</small></label>
-          <label>Contraseña<input type="password" value={password} onChange={e=>setPassword(e.target.value)} placeholder="Mínimo 8 caracteres" autoComplete={authMode==='login'?'current-password':'new-password'} minLength={8} required/></label>
-          {authMode==='register' && <label>Código privado del grupo<input value={groupCode} onChange={e=>setGroupCode(e.target.value.toUpperCase())} placeholder="Código de acceso" required autoComplete="off"/></label>}
+          <label>Contraseña<input type="password" value={password} onChange={e=>setPassword(e.target.value)} placeholder="Mínimo 8 caracteres" autoComplete="current-password" minLength={8} required/></label>
           {authError && <div className="error-box">{authError}</div>}
-          <button className="primary-btn full" disabled={authBusy}>{authBusy?'Un momento…':authMode==='login'?'Ingresar a Trueke':'Crear mi cuenta'} <ArrowRight size={17}/></button>
+          <button className="primary-btn full" disabled={authBusy}>{authBusy?'Un momento…':'Ingresar a Trueke'} <ArrowRight size={17}/></button>
         </form>
-        <div className="auth-switch">{authMode==='login'?'¿Ya tenés acceso al grupo?':'¿Ya tenés cuenta?'} <button onClick={()=>{setAuthMode(authMode==='login'?'register':'login');setAuthError('')}}>{authMode==='login'?'Crear cuenta':'Iniciar sesión'}</button></div>
         <div className="privacy-note"><ShieldCheck size={16}/> Acceso privado para miembros autorizados.</div>
       </div>
       <div className="panel-bottom">TRUEKE PRG <span>·</span> Intercambiar nos acerca</div>
