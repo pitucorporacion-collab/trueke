@@ -146,11 +146,8 @@ function App() {
   const currentListing = filtered[0];
   function swipeListing(direction) {
     if (!currentListing) return;
-    if (direction === 'right') {
-      supabase.from('listing_interests').insert({listing_id:currentListing.id,user_id:session.user.id})
-        .then(({error}) => { if (error && !String(error.message).includes('duplicate')) setNotice(error.message); });
-      setNotice('¡Interés enviado!');
-    } else setNotice('Publicación descartada.');
+    if (direction === 'right') addInterest(currentListing);
+    else setNotice('Publicación descartada.');
     setSkippedListings(prev => [...prev,currentListing.id]);
   }
   function finishSwipe(e) {
