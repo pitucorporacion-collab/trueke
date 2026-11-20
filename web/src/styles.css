@@ -66,3 +66,92 @@
  .swipe-actions button{width:50px;height:50px}
  .top-actions .user-chip{display:none}
 }
+
+/* TRUEKE PRG — colorful swipe-first redesign */
+:root{--tk-ink:#29204b;--tk-pink:#f36f9d;--tk-violet:#7954c7;--tk-mint:#65d8c3;--tk-peach:#ffb2a4}
+.app-shell{background:linear-gradient(145deg,#fff7fb 0%,#f4f0ff 54%,#edfffb 100%);color:var(--tk-ink)}
+.topbar{background:#ffffffed;border-bottom:1px solid #f1ddec;box-shadow:0 5px 22px #6c4b8210}
+.brand-mark{background:linear-gradient(135deg,#f58bb1,#9874e5);color:white;border-radius:13px}
+.brand{color:#35234f}
+.app-menu-button{border:0;background:linear-gradient(120deg,#8059cf,#e66d9c);color:#fff;border-radius:999px;padding:11px 18px;box-shadow:0 7px 18px #a66ab533}
+.swipe-home{max-width:760px;padding-top:27px}
+.swipe-heading{max-width:520px;align-items:center}
+.swipe-heading h1{color:#32204e;font-size:clamp(27px,4vw,36px)}
+.swipe-heading .eyebrow{color:#a35eb3}
+.swipe-search{border:1px solid #eed8ef;border-radius:999px;box-shadow:0 5px 16px #7d4c8910}
+.swipe-card{border:0;border-radius:28px;box-shadow:0 20px 55px #744b8522;background:#fff}
+.swipe-photo{height:clamp(300px,48vh,470px);background:linear-gradient(145deg,#f8c5dd,#c8c0f5)}
+.swipe-category{background:linear-gradient(120deg,#fff,#fff8fc);color:#8050ae;border:1px solid #f3d6ea}
+.swipe-details{padding:20px 23px 23px}
+.swipe-details h2{color:#31204e;font-size:27px}
+.swipe-owner{color:#a16c9d}
+.swipe-looking small{color:#bd5791}
+.tag-list span{background:#f9eaf4;border:1px solid #f3d6e9;color:#814d83;border-radius:999px}
+.swipe-actions{gap:34px;margin-top:22px}
+.swipe-actions button{width:68px;height:68px;border-radius:24px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;box-shadow:0 8px 22px #4e2e6c18}
+.swipe-actions button small{font-size:9px;font-weight:900;letter-spacing:.02em}
+.swipe-no{background:#fff2f1;border:1px solid #ffd6d3;color:#e46d76}
+.swipe-yes{background:linear-gradient(145deg,#ff82a9,#ed5f96);border:1px solid #f26b9b;color:#fff}
+.swipe-actions button:disabled{opacity:.55}
+.swipe-count{color:#9b77a3;line-height:1.5}
+.empty-state{background:#fff;border:1px solid #f2dced;border-radius:22px;box-shadow:0 12px 35px #754c8310}
+.empty-state h3{color:#392653}
+.primary-btn{background:linear-gradient(120deg,#8059cf,#e66d9c);border:0;border-radius:999px;box-shadow:0 8px 20px #a66ab533}
+.primary-btn:hover{background:linear-gradient(120deg,#7049bf,#db5e8e)}
+.dashboard-section{color:#34244e}
+.dashboard-section>h1{color:#302049}
+.match-card{border:1px solid #f0d9eb;border-radius:18px;box-shadow:0 8px 25px #724d8010}
+.match-avatar{background:linear-gradient(145deg,#f9c0d8,#c9b9f5);color:#603d8a}
+.match-info b{color:#382450}
+.match-items{display:block!important;background:#fff2f8;border-radius:10px;padding:8px 10px;color:#96527e!important;line-height:1.45}
+.match-items strong{color:#5f3a82}
+.whatsapp-btn{background:#e4fbf3;color:#16836b;border-radius:999px}
+.menu-page{min-height:calc(100vh - 68px);padding:55px 20px 70px;background:linear-gradient(145deg,#6e4bb3 0%,#a45cae 45%,#ef81a4 100%);color:#fff}
+.menu-page-head{max-width:760px;margin:0 auto 28px}
+.menu-page-head .eyebrow{color:#ffe0f1}
+.menu-page-head h1{font-family:Manrope,sans-serif;font-size:clamp(30px,5vw,43px);letter-spacing:-.045em;margin:8px 0}
+.menu-page-head p{color:#f9e8fb;margin:0}
+.menu-page-grid{max-width:760px;margin:auto;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.menu-tile{position:relative;min-height:155px;text-align:left;border:1px solid #ffffff4d;border-radius:22px;padding:20px;background:#ffffffed;color:#3d2855;display:flex;flex-direction:column;align-items:flex-start;gap:8px;box-shadow:0 12px 25px #3c1c5c25;transition:transform .18s,box-shadow .18s}
+.menu-tile:active{transform:scale(.98)}
+.menu-tile>b{font-size:16px;font-weight:900}
+.menu-tile>small{font-size:11px;line-height:1.45;color:#927b9d;max-width:230px}
+.menu-tile>svg:last-child{position:absolute;right:18px;bottom:18px;color:#a16dc2}
+.menu-tile-icon{width:43px;height:43px;border-radius:15px;background:#fbe4f0;color:#bd5791;display:grid;place-items:center}
+.menu-tile-primary{background:linear-gradient(135deg,#fff2f8,#f1eaff);border:2px solid #ffe0f0}
+.menu-tile-primary .menu-tile-icon{background:linear-gradient(135deg,#f68eb4,#9871df);color:#fff}
+.menu-tile-logout{background:#fff8f5}
+.menu-back{display:block;margin:22px auto 0;border:1px solid #ffffff80;background:#ffffff20;color:inherit;border-radius:999px;padding:11px 18px;font-weight:800;font-size:12px}
+.my-listings-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;margin-top:24px}
+.my-listing-card{overflow:hidden;background:#fff;border:1px solid #f0d9eb;border-radius:20px;box-shadow:0 10px 28px #744b8510}
+.my-listing-card>img{width:100%;height:190px;object-fit:cover;display:block}
+.my-listing-card>div{padding:16px}
+.my-listing-card .eyebrow{color:#a15ba0}
+.my-listing-card h3{margin:7px 0;color:#35234f;font-family:Manrope,sans-serif;font-size:19px}
+.my-listing-card p{font-size:12px;color:#927f9b;line-height:1.5}
+.delete-listing-btn{display:flex;align-items:center;gap:7px;border:1px solid #f5d1d4;background:#fff4f4;color:#c35c70;border-radius:999px;padding:9px 13px;font-size:11px;font-weight:800}
+.account-summary{display:flex;align-items:center;gap:14px;background:#fff;border:1px solid #f0d9eb;border-radius:18px;padding:18px;margin:24px 0;max-width:460px}
+.account-avatar{width:48px;height:48px;font-size:20px}
+.account-summary>div:last-child{display:flex;flex-direction:column;gap:5px}
+.account-summary b{color:#382450}
+.account-summary span{font-size:11px;color:#927f9b}
+@media(max-width:640px){
+ .topbar{height:62px}
+ .app-shell .footer{display:none}
+ .swipe-home{padding:20px 13px 28px}
+ .swipe-heading{margin-bottom:15px}
+ .swipe-heading h1{font-size:27px}
+ .swipe-photo{height:clamp(285px,43vh,400px)}
+ .swipe-details{padding:17px 17px 20px}
+ .swipe-details h2{font-size:24px}
+ .swipe-actions{gap:42px}
+ .swipe-actions button{width:66px;height:66px}
+ .menu-page{min-height:calc(100vh - 62px);padding:38px 16px 50px}
+ .menu-page-grid{grid-template-columns:1fr;gap:11px}
+ .menu-tile{min-height:125px;padding:16px 18px}
+ .menu-tile>b{font-size:15px}
+ .my-listings-grid{grid-template-columns:1fr}
+ .my-listing-card>img{height:220px}
+ .match-card{align-items:flex-start}
+ .whatsapp-btn{margin-left:56px}
+}
