@@ -400,7 +400,7 @@ function App() {
       </section>}
       {page==='explore'&&<section className="swipe-home">
         <div className="swipe-heading"><div><span className="eyebrow">TRUEKE PRG</span><h1>Descubrí Truekes</h1><p>Elegí lo que te interesa. Cada decisión queda guardada.</p></div>
-          <div className="swipe-search"><Search size={17}/><input value={query} onChange={e=>{setQuery(e.target.value);setSkippedListings([])}} placeholder="Buscar algo…"/></div>
+          <div className="swipe-search"><Search size={17}/><input value={query} onChange={e=>{setQuery(e.target.value);setCycleSeen([])}} placeholder="Buscar algo…"/></div>
         </div>
         {notice&&<div className="notice"><Check size={16}/>{notice}<button onClick={()=>setNotice('')}><X size={15}/></button></div>}
         {loading?<div className="loading">Cargando publicaciones…</div>:currentListing?<div className="swipe-stage">
