@@ -263,3 +263,55 @@
  .request-user-btn{min-height:38px;font-size:12px}
  .request-user>small{font-size:9px}
 }
+
+
+/* Ajustes de exploración: más foto, datos compactos y acciones visibles */
+.swipe-home{max-width:820px;padding-top:18px}
+.swipe-heading{max-width:620px;display:flex;flex-direction:column;align-items:stretch;gap:9px;margin:0 auto 13px}
+.swipe-heading>.eyebrow{font-size:12px;letter-spacing:.13em;margin:0 0 1px}
+.swipe-search{width:100%;height:43px;flex:none}
+.swipe-stage{width:min(100%,560px)}
+.swipe-photo{height:clamp(350px,56vh,560px)}
+.swipe-details{padding:12px 18px 15px}
+.swipe-product-head{display:grid;grid-template-columns:minmax(105px,.7fr) minmax(0,1.7fr);gap:14px;align-items:center}
+.swipe-info-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:7px}
+.swipe-info-grid .swipe-field{min-width:0;margin-top:0}
+.swipe-info-grid .swipe-looking{margin-top:0}
+.swipe-description-field p{font-size:11px;line-height:1.35}
+.swipe-looking .tag-list{gap:5px}
+.swipe-looking .tag-list span{padding:5px 9px;font-size:10px}
+.swipe-actions{gap:30px;margin-top:12px}
+.swipe-actions button{width:78px;height:70px;border-radius:23px}
+.swipe-actions button svg{width:29px;height:29px}
+.swipe-actions button small{font-size:10px}
+@media(max-width:640px){
+ .swipe-home{padding:7px 12px 6px;gap:6px}
+ .swipe-heading{display:flex;flex-direction:column;align-items:stretch;gap:6px;margin:0}
+ .swipe-heading>.eyebrow{font-size:11px;line-height:1.2;margin:0}
+ .swipe-search{width:100%;height:37px;margin:0}
+ .swipe-stage{width:100%;gap:4px}
+ .swipe-photo{height:auto;min-height:0;flex:1 1 0;max-height:none}
+ .swipe-details{padding:7px 11px 8px;gap:0}
+ .swipe-product-head{grid-template-columns:minmax(82px,.7fr) minmax(0,1.5fr);gap:9px}
+ .swipe-field{margin-top:2px}
+ .swipe-field>span{font-size:7px}
+ .swipe-field>strong{font-size:10px;line-height:1.15}
+ .swipe-field h2{font-size:15px;line-height:1.15}
+ .swipe-info-grid{grid-template-columns:1fr 1fr;gap:10px;margin-top:5px}
+ .swipe-description-field p{font-size:9px;line-height:1.2;-webkit-line-clamp:2}
+ .swipe-looking{margin-top:0}
+ .swipe-looking>span{margin-bottom:3px}
+ .swipe-looking .tag-list{gap:3px}
+ .swipe-looking .tag-list span{font-size:8px;padding:3px 6px}
+ .swipe-actions{margin-top:6px;gap:22px}
+ .swipe-actions button{width:62px;height:53px;border-radius:17px}
+ .swipe-actions button svg{width:24px;height:24px}
+ .swipe-actions button small{font-size:8px}
+ .swipe-count{display:none}
+}
+@media(max-height:700px) and (max-width:640px){
+ .swipe-photo{max-height:none}
+ .swipe-details{padding-top:5px;padding-bottom:5px}
+ .swipe-actions{margin-top:4px}
+ .swipe-actions button{width:56px;height:48px}
+}
