@@ -235,6 +235,16 @@ function App() {
     } finally { setCreatingMember(false); }
   }
 
+  async function removeAuthorizedPhone(item) {
+    const digits = String(item.phone || '').replace(/\\D/g,'').replace(/^549/,'');
+    if (!/^2964\\d{6}$/.test(digits)) { setNotice('El teléfono guardado tiene un formato inválido.'); return; }
+    if (!window.confirm('¿Eliminar el teléfono '+item.phone+' de la lista de autorizados? Si ya tenía una cuenta, también quedará bloqueada.')) return;
+    const {data,error} = await supabase.functions.invoke('admin-user-management',{body:{action:'remove',phone:digits}});
+    if (error || data?.error) { setNotice(data?.error || error?.message || 'No se pudo eliminar el teléfono.'); return; }
+    setNotice('Teléfono eliminado de la lista de autorizados.');
+    await loadData();
+  }
+
   async function setMemberActive(member,active) {
     const action = active ? 'habilitar' : 'bloquear';
     if (!window.confirm('¿Querés '+action+' a '+member.display_name+'?')) return;
@@ -357,7 +367,7 @@ function App() {
           </form>
         </div>
         <div className="admin-section-head"><h2><ShieldCheck size={19}/> Teléfonos autorizados</h2><span className="muted">{authorizedPhones.length} números</span></div>
-        <div className="member-list">{authorizedPhones.map(a=><article className="member-row" key={a.phone}><div className="member-info"><b>{a.phone}</b><span>{a.note||'Autorizado'}</span></div><span className={a.is_active?'member-state active':'member-state blocked'}>{a.is_active?'Autorizado':'Desactivado'}</span></article>)}</div>
+        <div className="member-list">{authorizedPhones.map(a=><article className="member-row" key={a.phone}><div className="member-info"><b>{a.phone}</b><span>{a.note||'Autorizado'}</span></div><span className={a.is_active?'member-state active':'member-state blocked'}>{a.is_active?'Autorizado':'Desactivado'}</span><button className="ban-btn" onClick={()=>removeAuthorizedPhone(a)}><X size={15}/> Eliminar</button></article>)}</div>
         <div className="admin-stats"><div><strong>{reports.filter(r=>r.status==='open').length}</strong><span>Denuncias pendientes</span></div><div><strong>{members.length}</strong><span>Miembros registrados</span></div><div><strong>{members.filter(m=>!m.is_active).length}</strong><span>Bloqueados</span></div></div>
         <div className="admin-section-head"><h2><Flag size={19}/> Denuncias</h2><button className="outline-btn" onClick={markNotificationsRead}>Marcar avisos leídos</button></div>
         {reports.length===0?<p className="muted">Todavía no hay denuncias.</p>:reports.map(r=><article className="report-card" key={r.id}><div className="report-main"><span className={'status-pill '+r.status}>{r.status==='open'?'Pendiente':r.status==='reviewed'?'Revisada':'Cerrada'}</span><b>{r.reason}</b><p>{r.details||'Sin detalles adicionales.'}</p><small>{new Date(r.created_at).toLocaleString('es-AR')} · Publicación/usuario: {r.listing_id||r.reported_user||'—'}</small></div><div className="report-actions"><button onClick={()=>updateReport(r,'reviewed')}>Revisada</button><button onClick={()=>updateReport(r,'closed')}>Cerrar</button></div></article>)}
