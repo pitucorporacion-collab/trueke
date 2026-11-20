@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import {
-  ArrowRight, ArrowUpRight, Bell, Check, Heart, ImagePlus, Leaf, LogOut,
+  ArrowRight, ArrowUpRight, Bell, Check, Heart, ImagePlus, Leaf, LogOut, Menu, XCircle,
   MapPin, Plus, Search, ShieldCheck, Tag, X, MessageCircle, Flag,
   Users, Ban, CheckCircle2, Send, Handshake, AlertTriangle
 } from 'lucide-react';
@@ -50,6 +50,11 @@ function App() {
   const [proposalOpen,setProposalOpen] = useState(false);
   const [form,setForm] = useState({title:'',description:'',looking_for:'',location:'Río Grande'});
   const [images,setImages] = useState([]);
+  const [menuOpen,setMenuOpen] = useState(false);
+  const [skippedListings,setSkippedListings] = useState([]);
+  const [swipeStart,setSwipeStart] = useState(null);
+  const categories = ['Tecnología','Muebles','Moda','Súper','Herramientas','Música','Juguetes y varios'];
+  const [formCategory,setFormCategory] = useState('Juguetes y varios');
 
   useEffect(() => {
     if (!supabase) { setLoading(false); return; }
@@ -135,8 +140,25 @@ function App() {
 
   const filtered = useMemo(() => listings.filter(item => {
     const text = [item.title,item.description,item.looking_for,item.profiles?.display_name].join(' ').toLowerCase();
-    return text.includes(query.toLowerCase()) && (item.listing_images || []).length > 0;
-  }),[listings,query]);
+    return item.user_id !== session?.user?.id && !skippedListings.includes(item.id) &&
+      text.includes(query.toLowerCase()) && (item.listing_images || []).length > 0;
+  }),[listings,query,session,skippedListings]);
+  const currentListing = filtered[0];
+  function swipeListing(direction) {
+    if (!currentListing) return;
+    if (direction === 'right') {
+      supabase.from('listing_interests').insert({listing_id:currentListing.id,user_id:session.user.id})
+        .then(({error}) => { if (error && !String(error.message).includes('duplicate')) setNotice(error.message); });
+      setNotice('¡Interés enviado!');
+    } else setNotice('Publicación descartada.');
+    setSkippedListings(prev => [...prev,currentListing.id]);
+  }
+  function finishSwipe(e) {
+    if (swipeStart === null) return;
+    const delta = e.changedTouches[0].clientX - swipeStart;
+    if (Math.abs(delta) > 65) swipeListing(delta > 0 ? 'right' : 'left');
+    setSwipeStart(null);
+  }
 
   function selectImages(files) { setImages(Array.from(files || []).slice(0,4)); }
 
@@ -157,7 +179,7 @@ function App() {
     try {
       const {data:listing,error} = await supabase.from('listings').insert({
         user_id:session.user.id,title:form.title.trim(),description:form.description.trim(),
-        looking_for:form.looking_for.trim(),location:'Río Grande',status:'published'
+        looking_for:form.looking_for.trim(),category:formCategory,location:'Río Grande',status:'published'
       }).select().single();
       if (error) throw error;
       for (let i=0;i<images.length;i++) {
@@ -168,7 +190,7 @@ function App() {
         const {error:rowError} = await supabase.from('listing_images').insert({listing_id:listing.id,user_id:session.user.id,storage_path:path,sort_order:i});
         if (rowError) throw rowError;
       }
-      setShowCreate(false); setForm({title:'',description:'',looking_for:'',location:'Río Grande'}); setImages([]);
+      setShowCreate(false); setForm({title:'',description:'',looking_for:'',location:'Río Grande'}); setFormCategory('Juguetes y varios'); setImages([]);
       setNotice('¡Publicación cargada! Ya está visible para todos los miembros.');
       await loadData();
     } catch(err) { setNotice(err.message || 'No se pudo publicar.'); }
@@ -327,26 +349,40 @@ function App() {
   return <div className="app-shell">
     <header className="topbar">
       <a className="brand" href="#" onClick={()=>setPage('explore')}><div className="brand-mark"><Leaf size={21}/></div><span>TRUEKE <b>PRG</b></span></a>
-      <nav className="desktop-nav">
-        <button className={page==='explore'?'nav-button active':'nav-button'} onClick={()=>setPage('explore')}>Explorar</button>
-        <button className={page==='matches'?'nav-button active':'nav-button'} onClick={()=>setPage('matches')}>Mis matches <span className="nav-count">{matches.length}</span></button>
-        {profile?.role==='admin'&&<button className={page==='admin'?'nav-button active':'nav-button'} onClick={()=>setPage('admin')}>Administración {unreadCount>0&&<span className="nav-count alert-count">{unreadCount}</span>}</button>}
-      </nav>
-      <div className="top-actions"><button className="icon-btn" aria-label="Notificaciones" onClick={()=>profile?.role==='admin'?setPage('admin'):setPage('matches')}><Bell size={19}/>{unreadCount>0&&<i className="notification-dot"/>}</button><div className="user-chip"><div className="avatar">{(profile?.display_name||'U').slice(0,1).toUpperCase()}</div><span>{profile?.display_name||'Mi cuenta'}</span>{profile?.role==='admin'&&<span className="admin-pill">ADMIN</span>}</div><button className="icon-btn" onClick={()=>{setPasswordTarget(null);setTemporaryPassword('');setNewOwnPassword('');setPasswordModal(true)}} title="Cambiar mi contraseña"><ShieldCheck size={18}/></button><button className="icon-btn" onClick={logout} title="Cerrar sesión"><LogOut size={18}/></button></div>
+      <div className="app-menu-wrap"><button className="app-menu-button" onClick={()=>setMenuOpen(v=>!v)}><Menu size={19}/> Menú</button>
+        {menuOpen&&<div className="app-menu">
+          <button onClick={()=>{setPage('explore');setMenuOpen(false)}}>Descubrir trueques</button>
+          <button onClick={()=>{setShowCreate(true);setMenuOpen(false)}}><Plus size={16}/> Subir una publicación</button>
+          <button onClick={()=>{setPage('matches');setMenuOpen(false)}}><Heart size={16}/> Mis intercambios <span>{matches.length}</span></button>
+          {profile?.role==='admin'&&<button onClick={()=>{setPage('admin');setMenuOpen(false)}}><ShieldCheck size={16}/> Administración</button>}
+          <button onClick={()=>{setPasswordTarget(null);setTemporaryPassword('');setNewOwnPassword('');setPasswordModal(true);setMenuOpen(false)}}><ShieldCheck size={16}/> Mi cuenta y contraseña</button>
+          <button onClick={logout}><LogOut size={16}/> Cerrar sesión</button>
+        </div>}
+      </div>
+      <div className="top-actions"><button className="icon-btn" aria-label="Notificaciones" onClick={()=>profile?.role==='admin'?setPage('admin'):setPage('matches')}><Bell size={19}/>{unreadCount>0&&<i className="notification-dot"/>}</button><div className="user-chip"><div className="avatar">{(profile?.display_name||'U').slice(0,1).toUpperCase()}</div><span>{profile?.display_name||'Mi cuenta'}</span>{profile?.role==='admin'&&<span className="admin-pill">ADMIN</span>}</div></div>
     </header>
     <main>
-      {page==='explore'&&<>
-        <section className="welcome-hero"><div className="hero-text"><span className="eyebrow light">✦ EL VALOR ESTÁ EN COMPARTIR</span><h1>Un buen intercambio<br/><em>nos sirve a todos.</em></h1><p>Encontrá eso que necesitás. Ofrecé eso que ya no usás.</p><button className="hero-btn" onClick={()=>setShowCreate(true)}><Plus size={18}/> Publicar un trueque</button></div><div className="hero-visual"><div className="sun-disc"></div><div className="floating-note note-a"><span>YO TENGO</span><b>Una bici 🚲</b></div><div className="swap-mark">↔</div><div className="floating-note note-b"><span>YO BUSCO</span><b>Una guitarra 🎸</b></div><div className="hero-stamp"><Leaf size={17}/><span>Sin dinero.<br/>Con valor.</span></div></div></section>
-        <section className="explore-section" id="explorar">
-          <div className="section-heading"><div><span className="eyebrow">LA COMUNIDAD EN MOVIMIENTO</span><h2>Encontrá tu próximo trueque</h2><p>Objetos, habilidades y servicios. Todo se puede intercambiar.</p></div><button className="outline-btn desktop-publish" onClick={()=>setShowCreate(true)}><Plus size={17}/> Publicar algo</button></div>
-          <div className="search-row"><div className="search-box"><Search size={19}/><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="¿Qué estás buscando?"/></div></div>
-          {notice&&<div className="notice"><Check size={16}/>{notice}<button onClick={()=>setNotice('')}><X size={15}/></button></div>}
-          {loading?<div className="loading">Cargando los trueques de la comunidad…</div>:<div className="listing-grid">{filtered.length?filtered.map((item,index)=><article className="listing-card" key={item.id}>
-            <div className={'listing-photo photo-'+(index%4)}>{photos[item.id]?<img src={photos[item.id]} alt={item.title}/>:<div className="photo-placeholder"><Tag size={31}/><span>TRUEQUE</span></div>}<span className="photo-tag">DISPONIBLE</span></div>
-            <div className="listing-info"><div className="listing-meta"><span><MapPin size={13}/>{item.location||'Ubicación a coordinar'}</span><span>{new Date(item.created_at).toLocaleDateString('es-AR',{day:'numeric',month:'short'})}</span></div><h3>{item.title}</h3><p>{item.description||'Sin descripción adicional.'}</p><div className="swap-for"><span>BUSCA A CAMBIO</span><b>{item.looking_for}</b></div><div className="card-footer"><div className="seller"><div className="mini-avatar">{(item.profiles?.display_name||'U').slice(0,1).toUpperCase()}</div><span>{item.profiles?.display_name||'Miembro'}</span></div><div className="card-actions"><button className="interest-btn" onClick={()=>addInterest(item)} disabled={item.user_id===session.user.id}><Heart size={15}/> Me interesa</button><button className="view-link" onClick={()=>setSelectedListing(item)}>Ver <ArrowUpRight size={16}/></button></div></div></div>
-          </article>):<div className="empty-state"><Search size={28}/><h3>No encontramos coincidencias</h3><p>Probá con otra búsqueda o publicá lo que querés intercambiar.</p><button className="primary-btn" onClick={()=>setShowCreate(true)}>Publicar un trueque <ArrowRight size={16}/></button></div>}</div>}
-        </section>
-      </>}
+      {page==='explore'&&<section className="swipe-home">
+        <div className="swipe-heading"><div><span className="eyebrow">TRUEKE PRG</span><h1>Descubrí intercambios</h1><p>Deslizá a la derecha si te interesa. A la izquierda para seguir.</p></div>
+          <div className="swipe-search"><Search size={17}/><input value={query} onChange={e=>{setQuery(e.target.value);setSkippedListings([])}} placeholder="Buscar algo…"/></div>
+        </div>
+        {notice&&<div className="notice"><Check size={16}/>{notice}<button onClick={()=>setNotice('')}><X size={15}/></button></div>}
+        {loading?<div className="loading">Cargando publicaciones…</div>:currentListing?<div className="swipe-stage">
+          <article className="swipe-card" onTouchStart={e=>setSwipeStart(e.touches[0].clientX)} onTouchEnd={finishSwipe}>
+            <div className="swipe-photo">{photos[currentListing.id]?<img src={photos[currentListing.id]} alt={currentListing.title}/>:<div className="photo-placeholder"><Tag size={35}/><span>TRUEQUE</span></div>}
+              <span className="swipe-category">{currentListing.category || 'Juguetes y varios'}</span>
+            </div>
+            <div className="swipe-details">
+              <div className="swipe-owner"><span>{currentListing.profiles?.display_name || 'Miembro de Trueke'}</span><span>{currentListing.location || 'Río Grande'}</span></div>
+              <h2>{currentListing.title}</h2>
+              {currentListing.description&&<p className="swipe-description">{currentListing.description}</p>}
+              <div className="swipe-looking"><small>ESTÁ BUSCANDO</small><div className="tag-list">{currentListing.looking_for.split(/[,;]+/).map((tag,i)=><span key={i}>{tag.trim()}</span>)}</div></div>
+              <div className="swipe-actions"><button className="swipe-no" onClick={()=>swipeListing('left')} aria-label="No me interesa"><XCircle size={25}/></button><button className="swipe-yes" onClick={()=>swipeListing('right')} aria-label="Me interesa"><Heart size={24}/></button></div>
+            </div>
+          </article>
+          <div className="swipe-count">{filtered.length} publicaciones para descubrir · deslizá la tarjeta</div>
+        </div>:<div className="empty-state swipe-empty"><Handshake size={36}/><h3>Por ahora no hay más publicaciones</h3><p>Volvé más tarde o publicá algo para intercambiar.</p><button className="primary-btn" onClick={()=>setShowCreate(true)}><Plus size={17}/> Publicar algo</button></div>}
+      </section>}
       {page==='matches'&&<section className="dashboard-section"><span className="eyebrow">TUS CONEXIONES</span><h1>Mis matches</h1><p className="muted">Cuando dos personas se interesan mutuamente, pueden coordinar por WhatsApp.</p>
         {matches.length===0&&<div className="empty-state"><Handshake size={34}/><h3>Todavía no tenés matches</h3><p>Marcá «Me interesa» en publicaciones. Si la otra persona también se interesa por algo tuyo, aparecerá acá.</p></div>}
         <div className="match-list">{matches.map(m=>{const c=contactMap[m.id];return <article className="match-card" key={m.id}><div className="match-avatar">{(c?.display_name||'M').slice(0,1).toUpperCase()}</div><div className="match-info"><b>{c?.display_name||'Miembro de Trueke'}</b><small>Match confirmado · {new Date(m.created_at).toLocaleDateString('es-AR')}</small><span>{c?.phone||'Contacto protegido'}</span></div>{c?.phone&&<a className="whatsapp-btn" href={'https://wa.me/'+c.phone.replace(/\D/g,'')} target="_blank" rel="noreferrer"><MessageCircle size={17}/> Abrir chat</a>}</article>})}</div>
@@ -387,6 +423,7 @@ function App() {
       <label>¿Qué ofrecés?<input value={form.title} onChange={e=>setForm({...form,title:e.target.value})} placeholder="Ej. Bicicleta rodado 29" maxLength={100} required/></label>
       <label>Contá un poco más<textarea value={form.description} onChange={e=>setForm({...form,description:e.target.value})} placeholder="Estado, medidas, detalles o cómo es el servicio…" rows={3} maxLength={1000}/></label>
       <label>¿Qué te gustaría recibir a cambio?<input value={form.looking_for} onChange={e=>setForm({...form,looking_for:e.target.value})} placeholder="Ej. Una mesa, clases de inglés, ayuda…" maxLength={300} required/></label>
+      <label>¿A qué categoría pertenece?<select value={formCategory} onChange={e=>setFormCategory(e.target.value)} required><option value="">Elegí una categoría</option>{categories.map(category=><option key={category} value={category}>{category}</option>)}</select></label>
       <p className="location-fixed"><MapPin size={15}/> Publicaciones de Río Grande</p>
       <div className="upload-area"><label className="upload-label"><ImagePlus size={20}/><span><b>Sumá al menos una foto *</b><small>Obligatoria · hasta 4 imágenes · se optimizan automáticamente</small></span><input type="file" accept="image/*" multiple onChange={e=>selectImages(e.target.files)} hidden/></label><div className="image-count">{images.length}/4</div></div>
       {images.length>0&&<div className="selected-files">{images.map((f,i)=><span key={i}>{f.name}<button type="button" onClick={()=>setImages(images.filter((_,j)=>j!==i))}><X size={13}/></button></span>)}</div>}
