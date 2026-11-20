@@ -236,8 +236,8 @@ function App() {
   }
 
   async function removeAuthorizedPhone(item) {
-    const digits = String(item.phone || '').replace(/\\D/g,'').replace(/^549/,'');
-    if (!/^2964\\d{6}$/.test(digits)) { setNotice('El teléfono guardado tiene un formato inválido.'); return; }
+    const digits = String(item.phone || '').replace(/\D/g,'').replace(/^549/,'');
+    if (!/^2964\d{6}$/.test(digits)) { setNotice('El teléfono guardado tiene un formato inválido.'); return; }
     if (!window.confirm('¿Eliminar el teléfono '+item.phone+' de la lista de autorizados? Si ya tenía una cuenta, también quedará bloqueada.')) return;
     const {data,error} = await supabase.functions.invoke('admin-user-management',{body:{action:'remove',phone:digits}});
     if (error || data?.error) { setNotice(data?.error || error?.message || 'No se pudo eliminar el teléfono.'); return; }
