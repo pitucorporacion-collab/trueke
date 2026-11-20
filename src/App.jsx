@@ -184,6 +184,30 @@ export default function App() {
     const {error} = await db.from("profiles").update({display_name:name,bio}).eq("id",session.user.id);
     if (error) setNotice(error.message); else { await loadProfile(session.user.id); setNotice("Perfil actualizado."); }
   }
+  async function completeRequiredName(e) {
+    e.preventDefault();
+    const displayName = name.trim().replace(/\s+/g, " ");
+    if (displayName.length < 2) {
+      setNotice("Ingresá un nombre de al menos 2 caracteres.");
+      return;
+    }
+    setBusy(true);
+    setNotice("");
+    const { data, error } = await db
+      .from("profiles")
+      .update({ display_name: displayName })
+      .eq("id", session.user.id)
+      .select("*")
+      .single();
+    if (error) {
+      setNotice("No pudimos guardar tu nombre: " + error.message);
+    } else {
+      setProfile(data);
+      setName(displayName);
+      setNotice("¡Nombre guardado! Bienvenido a Trueke PRG.");
+    }
+    setBusy(false);
+  }
   async function addAuthorized(e) {
     e.preventDefault(); const p=normalizePhone(newPhone);
     if (demo) { setAuthorized([...authorized,{phone:p,note:"Agregado en demo"}]); setNewPhone(""); return; }
@@ -236,6 +260,8 @@ export default function App() {
   const initials = (profile?.display_name || "TP").slice(0,1).toUpperCase();
 
   if (!profile && !session) return <main className="auth-shell"><div className="auth-card"><div className="brand-mark">T</div><p className="eyebrow">COMUNIDAD PRIVADA · RÍO GRANDE</p><h1>Trueke <span>PRG</span></h1><p className="muted">Lo que ya no necesitás puede ser justo lo que alguien está buscando.</p>{demo && <div className="demo-note">Vista de demostración: los datos se guardan solo en este navegador.</div>}<div className="switcher"><button className={mode==="login"?"selected":""} onClick={()=>setMode("login")}>Ingresar</button><button className={mode==="register"?"selected":""} onClick={()=>setMode("register")}>Crear cuenta</button></div><form onSubmit={authenticate} className="stack"><label>Teléfono celular<input value={phone} onChange={e=>setPhone(e.target.value)} placeholder="2964 123456" required /></label>{mode==="register" && <><label>Nombre<input value={name} onChange={e=>setName(e.target.value)} placeholder="Cómo te conocen en el grupo" required /></label><label>Código general del grupo<input value={invite} onChange={e=>setInvite(e.target.value)} placeholder="Código compartido en WhatsApp" required /></label></>}<label>Contraseña<input type="password" value={password} onChange={e=>setPassword(e.target.value)} placeholder="Mínimo 8 caracteres" minLength="8" required /></label><button className="primary wide" disabled={busy}>{busy?"Un momento…":mode==="register"?"Solicitar ingreso":"Entrar a Trueke"}</button></form>{notice && <p className="notice">{notice}</p>}<p className="tiny">El teléfono debe estar en la lista de miembros autorizados. Las cuentas nuevas requieren aprobación.</p></div></main>;
+
+  if (profile && !profile.display_name?.trim()) return <main className="auth-shell"><div className="auth-card"><div className="brand-mark">T</div><p className="eyebrow">TU PERFIL · TRUEKE PRG</p><h1>¿Cómo te llamás?</h1><p className="muted">Antes de entrar a la comunidad, necesitamos que cargues tu nombre. Así los demás miembros pueden reconocerte.</p><form className="stack" onSubmit={completeRequiredName}><label>Tu nombre<input value={name} onChange={e=>setName(e.target.value)} placeholder="Escribí tu nombre" autoComplete="name" minLength="2" maxLength="60" required autoFocus /></label><button className="primary wide" disabled={busy}>{busy ? "Guardando…" : "Guardar y continuar"}</button></form>{notice && <p className="notice">{notice}</p>}<button className="text-button" onClick={signOut}>Cerrar sesión</button></div></main>;
 
   if (status === "pending" || status === "blocked") return <main className="auth-shell"><div className="auth-card center"><div className="brand-mark">T</div><h1>{status==="pending"?"Estamos revisando tu ingreso":"Cuenta suspendida"}</h1><p className="muted">{status==="pending"?"Tu teléfono está registrado, pero el administrador debe aprobar tu cuenta antes de que puedas ver la comunidad.":"Tu cuenta no tiene acceso en este momento. Contactá al administrador."}</p><button className="secondary wide" onClick={signOut}>Cerrar sesión</button></div></main>;
 
