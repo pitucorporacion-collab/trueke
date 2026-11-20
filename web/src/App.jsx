@@ -438,7 +438,8 @@ function App() {
         <button className="menu-back" onClick={()=>setPage('menu')}>Volver al menú</button>
       </section>}
       {page==='explore'&&<section className="swipe-home">
-        <div className="swipe-heading"><div><span className="eyebrow">TRUEKE PRG</span><h1>Descubrí Truekes</h1><p>Elegí lo que te interesa. Cada decisión queda guardada.</p></div>
+        <div className="swipe-heading">
+          <span className="eyebrow">TRUEKE PRG</span>
           <div className="swipe-search"><Search size={17}/><input value={query} onChange={e=>{setQuery(e.target.value);setCycleSeen([])}} placeholder="Buscar algo…"/></div>
         </div>
         {notice&&<div className="notice"><Check size={16}/>{notice}<button onClick={()=>setNotice('')}><X size={15}/></button></div>}
@@ -448,14 +449,17 @@ function App() {
               <span className="swipe-category">{currentListing.category || 'Juguetes y varios'}</span>
             </div>
             <div className="swipe-details">
-              <div className="swipe-field"><span>USUARIO</span><strong>{currentListing.profiles?.display_name || 'Miembro de Trueke'}</strong></div>
-              <div className="swipe-field"><span>PRODUCTO A CAMBIAR</span><h2>{currentListing.title}</h2></div>
-              <div className="swipe-field swipe-description-field"><span>DESCRIPCIÓN</span><p className="swipe-description">{currentListing.description || 'Sin descripción'}</p></div>
-              <div className="swipe-field swipe-looking"><span>ESTÁ BUSCANDO</span><div className="tag-list">{currentListing.looking_for.split(/[,;]+/).map((tag,i)=><span key={i}>{tag.trim()}</span>)}</div></div>
-              <div className="swipe-actions"><button className="swipe-no" disabled={swipeBusy} onClick={()=>swipeListing('left')} aria-label="No me gusta"><XCircle size={25}/><small>No me gusta</small></button><button className="swipe-yes" disabled={swipeBusy} onClick={()=>swipeListing('right')} aria-label="Me gusta"><Heart size={24}/><small>Me gusta</small></button></div>
+              <div className="swipe-product-head">
+                <div className="swipe-field swipe-user-field"><span>USUARIO</span><strong>{currentListing.profiles?.display_name || 'Miembro de Trueke'}</strong></div>
+                <div className="swipe-field swipe-product-field"><span>PRODUCTO A CAMBIAR</span><h2>{currentListing.title}</h2></div>
+              </div>
+              <div className="swipe-info-grid">
+                <div className="swipe-field swipe-description-field"><span>DESCRIPCIÓN</span><p className="swipe-description">{currentListing.description || 'Sin descripción'}</p></div>
+                <div className="swipe-field swipe-looking"><span>ESTÁ BUSCANDO</span><div className="tag-list">{currentListing.looking_for.split(/[,;]+/).map((tag,i)=><span key={i}>{tag.trim()}</span>)}</div></div>
+              </div>
+              <div className="swipe-actions"><button className="swipe-no" disabled={swipeBusy} onClick={()=>swipeListing('left')} aria-label="No me gusta"><XCircle size={29}/><small>No me gusta</small></button><button className="swipe-yes" disabled={swipeBusy} onClick={()=>swipeListing('right')} aria-label="Me gusta"><Heart size={28}/><small>Me gusta</small></button></div>
             </div>
           </article>
-          <div className="swipe-count">{eligibleListings.length} publicaciones en esta vuelta</div>
         </div>:<div className="empty-state swipe-empty"><Handshake size={36}/><h3>Por ahora no hay más publicaciones</h3><p>Volvé más tarde o publicá algo para intercambiar.</p><button className="primary-btn" onClick={()=>setShowCreate(true)}><Plus size={17}/> Publicar algo</button></div>}
       </section>}
       {page==='matches'&&<section className="dashboard-section"><span className="eyebrow">TUS CONEXIONES</span><h1>Mis matches</h1><p className="muted">Cuando dos personas se interesan mutuamente, pueden coordinar por WhatsApp.</p>
