@@ -87,7 +87,7 @@ function App() {
     setLoading(true);
     const [{data:me},{data:rows,error}] = await Promise.all([
       supabase.from('profiles').select('id,display_name,role,is_active,created_at').eq('id',session.user.id).single(),
-      supabase.from('listings').select('*, profiles(display_name), listing_images(id,storage_path,sort_order)').eq('status','published').order('created_at',{ascending:false})
+      supabase.from('listings').select('*, profiles(display_name), listing_images(id,storage_path,sort_order)').or('status.eq.published,user_id.eq.'+session.user.id).order('created_at',{ascending:false})
     ]);
     setProfile(me || null);
     if (error) setNotice('No pudimos cargar las publicaciones. Revisá tu conexión.');
