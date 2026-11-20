@@ -22,6 +22,11 @@ function App() {
   const [reports,setReports] = useState([]);
   const [notifications,setNotifications] = useState([]);
   const [members,setMembers] = useState([]);
+  const [authorizedPhones,setAuthorizedPhones] = useState([]);
+  const [newMemberPhone,setNewMemberPhone] = useState('');
+  const [newMemberName,setNewMemberName] = useState('');
+  const [newMemberPassword,setNewMemberPassword] = useState('');
+  const [creatingMember,setCreatingMember] = useState(false);
   const [passwordModal,setPasswordModal] = useState(false);
   const [passwordTarget,setPasswordTarget] = useState(null);
   const [temporaryPassword,setTemporaryPassword] = useState('');
@@ -108,6 +113,9 @@ function App() {
       setReports(reportRows || []);
       setNotifications(notificationRows || []);
       setMembers(memberRows || []);
+      const {data:accessData,error:accessError} = await supabase.functions.invoke('admin-user-management',{body:{action:'list'}});
+      if (accessError) setNotice('No pudimos cargar los teléfonos autorizados: '+accessError.message);
+      else setAuthorizedPhones(accessData?.phones || []);
     }
     setLoading(false);
   }
@@ -200,6 +208,31 @@ function App() {
     });
     if (error) setNotice(error.message);
     else { setNotice('Denuncia enviada. Gracias por ayudar a cuidar la comunidad.'); setReportTarget(null); setReportDetails(''); await loadData(); }
+  }
+
+
+  async function createManagedMember(e) {
+    e.preventDefault();
+    setNotice('');
+    const cleanPhone = newMemberPhone.replace(/\\D/g,'');
+    if (!/^2964\\d{6}$/.test(cleanPhone)) { setNotice('El teléfono debe tener 10 números: 2964 y otros 6 números.'); return; }
+    if (newMemberName.trim().length < 2) { setNotice('Ingresá el nombre del usuario.'); return; }
+    if (newMemberPassword.length < 8) { setNotice('La contraseña debe tener al menos 8 caracteres.'); return; }
+    setCreatingMember(true);
+    try {
+      const {error:allowError} = await supabase.functions.invoke('admin-user-management',{body:{action:'authorize',phone:cleanPhone}});
+      if (allowError) throw allowError;
+      const {data,error} = await supabase.functions.invoke('admin-user-management',{body:{
+        action:'create_user',phone:cleanPhone,display_name:newMemberName.trim(),password:newMemberPassword
+      }});
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      setNewMemberPhone(''); setNewMemberName(''); setNewMemberPassword('');
+      setNotice('Cuenta creada. El usuario ya puede ingresar con su teléfono y contraseña.');
+      await loadData();
+    } catch(err) {
+      setNotice(err.message || 'No se pudo crear la cuenta.');
+    } finally { setCreatingMember(false); }
   }
 
   async function setMemberActive(member,active) {
@@ -310,7 +343,21 @@ function App() {
         {incoming.length>0&&<><h2 className="subheading">Propuestas recibidas</h2>{incoming.map(p=><article className="proposal-card" key={p.id}><div><b>Propuesta directa</b><p>{p.message}</p><small>{new Date(p.created_at).toLocaleDateString('es-AR')}</small></div><button className="primary-btn" onClick={()=>acceptProposal(p.id)}><CheckCircle2 size={16}/> Aceptar y hacer match</button></article>)}</>}
         {outgoing.length>0&&<><h2 className="subheading">Propuestas enviadas</h2>{outgoing.map(p=><article className="proposal-card" key={p.id}><div><b>{p.status==='accepted'?'Aceptada':p.status==='rejected'?'Rechazada':'Pendiente'}</b><p>{p.message}</p></div></article>)}</>}
       </section>}
-      {page==='admin'&&profile?.role==='admin'&&<section className="dashboard-section"><span className="eyebrow">PANEL PRIVADO</span><h1>Administración</h1><p className="muted">Moderá la comunidad y revisá los avisos de los miembros.</p>
+      {page==='admin'&&profile?.role==='admin'&&<section className="dashboard-section">
+        <span className="eyebrow">PANEL PRIVADO</span><h1>Administración</h1>
+        <p className="muted">Creá las cuentas y administrá quién puede ingresar a Trueke PRG.</p>
+        <div className="create-modal" style={{margin:'24px 0',padding:24}}>
+          <h2>Crear usuario</h2>
+          <p className="muted">El teléfono queda autorizado y la cuenta se crea directamente. No hay registro libre.</p>
+          <form className="create-form" onSubmit={createManagedMember}>
+            <label>Teléfono (2964 + seis números)<input type="tel" inputMode="numeric" value={newMemberPhone} onChange={e=>setNewMemberPhone(e.target.value.replace(/\\D/g,'').slice(0,10))} placeholder="2964XXXXXX" maxLength={10} pattern="2964[0-9]{6}" required/></label>
+            <label>Nombre del usuario<input value={newMemberName} onChange={e=>setNewMemberName(e.target.value)} placeholder="Nombre y apellido" minLength={2} maxLength={60} required/></label>
+            <label>Contraseña inicial<input type="text" value={newMemberPassword} onChange={e=>setNewMemberPassword(e.target.value)} placeholder="Mínimo 8 caracteres" minLength={8} required/></label>
+            <button className="primary-btn" disabled={creatingMember}>{creatingMember?'Creando cuenta…':'Autorizar y crear cuenta'}</button>
+          </form>
+        </div>
+        <div className="admin-section-head"><h2><ShieldCheck size={19}/> Teléfonos autorizados</h2><span className="muted">{authorizedPhones.length} números</span></div>
+        <div className="member-list">{authorizedPhones.map(a=><article className="member-row" key={a.phone}><div className="member-info"><b>{a.phone}</b><span>{a.note||'Autorizado'}</span></div><span className={a.is_active?'member-state active':'member-state blocked'}>{a.is_active?'Autorizado':'Desactivado'}</span></article>)}</div>
         <div className="admin-stats"><div><strong>{reports.filter(r=>r.status==='open').length}</strong><span>Denuncias pendientes</span></div><div><strong>{members.length}</strong><span>Miembros registrados</span></div><div><strong>{members.filter(m=>!m.is_active).length}</strong><span>Bloqueados</span></div></div>
         <div className="admin-section-head"><h2><Flag size={19}/> Denuncias</h2><button className="outline-btn" onClick={markNotificationsRead}>Marcar avisos leídos</button></div>
         {reports.length===0?<p className="muted">Todavía no hay denuncias.</p>:reports.map(r=><article className="report-card" key={r.id}><div className="report-main"><span className={'status-pill '+r.status}>{r.status==='open'?'Pendiente':r.status==='reviewed'?'Revisada':'Cerrada'}</span><b>{r.reason}</b><p>{r.details||'Sin detalles adicionales.'}</p><small>{new Date(r.created_at).toLocaleString('es-AR')} · Publicación/usuario: {r.listing_id||r.reported_user||'—'}</small></div><div className="report-actions"><button onClick={()=>updateReport(r,'reviewed')}>Revisada</button><button onClick={()=>updateReport(r,'closed')}>Cerrar</button></div></article>)}
