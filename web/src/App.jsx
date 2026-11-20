@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import {
-  ArrowRight, ArrowUpRight, Bell, Check, Heart, ImagePlus, Leaf, LogOut, Menu, XCircle,
+  ArrowRight, ArrowUpRight, Bell, Check, Heart, ImagePlus, Smartphone, LogOut, Menu, XCircle,
   MapPin, Plus, Search, ShieldCheck, Tag, X, MessageCircle, Flag,
   Users, Ban, CheckCircle2, Send, Handshake, AlertTriangle
 } from 'lucide-react';
@@ -33,6 +33,9 @@ function App() {
   const [newOwnPassword,setNewOwnPassword] = useState('');
   const [passwordBusy,setPasswordBusy] = useState(false);
   const [loading,setLoading] = useState(true);
+  const [installPrompt,setInstallPrompt] = useState(null);
+  const [installHelp,setInstallHelp] = useState(false);
+  const [appInstalled,setAppInstalled] = useState(false);
   const [authError,setAuthError] = useState('');
   const [authBusy,setAuthBusy] = useState(false);
   const [phone,setPhone] = useState('');
@@ -56,6 +59,38 @@ function App() {
   const [swipeBusy,setSwipeBusy] = useState(false);
   const categories = ['Tecnología','Muebles','Moda','Súper','Herramientas','Música','Juguetes y varios'];
   const [formCategory,setFormCategory] = useState('Juguetes y varios');
+
+  useEffect(() => {
+    const standalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+    setAppInstalled(standalone);
+    const handlePrompt = event => {
+      event.preventDefault();
+      setInstallPrompt(event);
+    };
+    const handleInstalled = () => {
+      setAppInstalled(true);
+      setInstallPrompt(null);
+      setInstallHelp(false);
+    };
+    window.addEventListener('beforeinstallprompt', handlePrompt);
+    window.addEventListener('appinstalled', handleInstalled);
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handlePrompt);
+      window.removeEventListener('appinstalled', handleInstalled);
+    };
+  }, []);
+
+  async function installApp() {
+    if (appInstalled) return;
+    if (installPrompt) {
+      installPrompt.prompt();
+      const choice = await installPrompt.userChoice;
+      if (choice?.outcome === 'accepted') setInstallHelp(false);
+      setInstallPrompt(null);
+      return;
+    }
+    setInstallHelp(value => !value);
+  }
 
   useEffect(() => {
     if (!supabase) { setLoading(false); return; }
@@ -339,13 +374,13 @@ function App() {
 
   if (!session) return <main className="auth-shell">
     <section className="auth-art">
-      <div className="auth-brand"><div className="brand-mark"><Leaf size={23}/></div><span>TRUEKE <b>PRG</b></span></div>
+      <div className="auth-brand"><div className="brand-mark"><Handshake size={23}/></div><span>Trueke <b>Para Rio Grande</b></span></div>
       <div className="art-copy"><span className="eyebrow light">UNA COMUNIDAD QUE COMPARTE</span><h1>Lo que tenés,<br/><em>vale por lo que</em><br/>necesitás.</h1><p>Un lugar para intercambiar cosas, saberes y servicios entre nosotros. Sin plata. Sin vueltas.</p></div>
       <div className="art-footer"><span>Intercambios con sentido.</span><span>01 — Comunidad PRG</span></div>
       <div className="art-orbit orbit-one"></div><div className="art-orbit orbit-two"></div>
     </section>
     <section className="auth-panel">
-      <div className="mobile-brand"><div className="brand-mark"><Leaf size={22}/></div><span>TRUEKE <b>PRG</b></span></div>
+      <div className="mobile-brand"><div className="brand-mark"><Handshake size={22}/></div><span>Trueke <b>Para Rio Grande</b></span></div>
       <div className="auth-card">
         <span className="eyebrow">QUÉ BUENO VERTE</span>
         <h2>Entrá a tu comunidad</h2>
@@ -357,6 +392,9 @@ function App() {
           <button className="primary-btn full" disabled={authBusy}>{authBusy?'Un momento…':'Ingresar a Trueke'} <ArrowRight size={17}/></button>
         </form>
         <div className="privacy-note"><ShieldCheck size={16}/> Acceso privado para miembros autorizados.</div>
+        {!appInstalled && <button type="button" className="install-app-btn" onClick={installApp}><Smartphone size={18}/> App móvil</button>}
+        {installHelp && <div className="install-help" role="status"><b>Instalá Trueke en tu celular</b><span>Android: abrí el menú ⋮ de Chrome y elegí “Instalar aplicación” o “Agregar a pantalla principal”.</span><span>iPhone: tocá Compartir en Safari y elegí “Agregar a pantalla de inicio”.</span></div>}
+        <div className="request-user"><span>¿Todavía no tenés usuario?</span><button type="button" onClick={()=>setInstallHelp(false)} className="request-user-btn">Pedí tu usuario aquí</button><small>El acceso es por invitación. Solicitá tu usuario al administrador de Trueke PRG.</small></div>
       </div>
       <div className="panel-bottom">TRUEKE PRG <span>·</span> Intercambiar nos acerca</div>
     </section>
@@ -369,7 +407,7 @@ function App() {
 
   return <div className="app-shell">
     <header className="topbar">
-      <a className="brand" href="#" onClick={()=>setPage('explore')}><div className="brand-mark"><Leaf size={21}/></div><span>TRUEKE <b>PRG</b></span></a>
+      <a className="brand" href="#" onClick={()=>setPage('explore')}><div className="brand-mark"><Handshake size={21}/></div><span>Trueke <b>Para Rio Grande</b></span></a>
       <button className="app-menu-button" onClick={()=>setPage('menu')}><Menu size={19}/> Menú</button>
       <div className="top-actions"><button className="icon-btn" aria-label="Notificaciones" onClick={()=>profile?.role==='admin'?setPage('admin'):setPage('matches')}><Bell size={19}/>{unreadCount>0&&<i className="notification-dot"/>}</button><div className="user-chip"><div className="avatar">{(profile?.display_name||'U').slice(0,1).toUpperCase()}</div><span>{profile?.display_name||'Mi cuenta'}</span>{profile?.role==='admin'&&<span className="admin-pill">ADMIN</span>}</div></div>
     </header>
