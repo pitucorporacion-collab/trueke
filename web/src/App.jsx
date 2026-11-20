@@ -35,6 +35,7 @@ function App() {
   const [loading,setLoading] = useState(true);
   const [installPrompt,setInstallPrompt] = useState(null);
   const [installHelp,setInstallHelp] = useState(false);
+  const [requestUserHelp,setRequestUserHelp] = useState(false);
   const [appInstalled,setAppInstalled] = useState(false);
   const [authError,setAuthError] = useState('');
   const [authBusy,setAuthBusy] = useState(false);
@@ -394,7 +395,7 @@ function App() {
         <div className="privacy-note"><ShieldCheck size={16}/> Acceso privado para miembros autorizados.</div>
         {!appInstalled && <button type="button" className="install-app-btn" onClick={installApp}><Smartphone size={18}/> App móvil</button>}
         {installHelp && <div className="install-help" role="status"><b>Instalá Trueke en tu celular</b><span>Android: abrí el menú ⋮ de Chrome y elegí “Instalar aplicación” o “Agregar a pantalla principal”.</span><span>iPhone: tocá Compartir en Safari y elegí “Agregar a pantalla de inicio”.</span></div>}
-        <div className="request-user"><span>¿Todavía no tenés usuario?</span><button type="button" onClick={()=>setInstallHelp(false)} className="request-user-btn">Pedí tu usuario aquí</button><small>El acceso es por invitación. Solicitá tu usuario al administrador de Trueke PRG.</small></div>
+        <div className="request-user"><span>¿Todavía no tenés usuario?</span><button type="button" onClick={()=>setRequestUserHelp(value=>!value)} className="request-user-btn">Pedí tu usuario aquí</button>{requestUserHelp && <small>El acceso es por invitación. Solicitá tu usuario al administrador de Trueke PRG.</small>}</div>
       </div>
       <div className="panel-bottom">TRUEKE PRG <span>·</span> Intercambiar nos acerca</div>
     </section>
