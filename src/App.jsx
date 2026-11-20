@@ -44,6 +44,8 @@ export default function App() {
   const [reportPost, setReportPost] = useState(null);
   const [reportReason, setReportReason] = useState("");
   const [newPhone, setNewPhone] = useState("");
+  const [newUserName, setNewUserName] = useState("");
+  const [newUserPassword, setNewUserPassword] = useState("");
   const [inviteCode, setInviteCode] = useState("");
   const [activeMatch, setActiveMatch] = useState(null);
   const [proposals, setProposals] = useState([]);
@@ -78,7 +80,7 @@ export default function App() {
 
   async function loadProfile(id) {
     const { data } = await db.from("profiles").select("*").eq("id", id).maybeSingle();
-    setProfile(data);
+    setProfile(data ? { ...data, status: data.status || (data.is_active ? "active" : "blocked") } : null);
   }
   async function loadPosts() {
     const { data, error } = await db.from("posts").select("*, profiles(display_name,avatar_url)").eq("active", true).order("created_at", { ascending:false });
@@ -106,13 +108,10 @@ export default function App() {
     if (error) setNotice(error.message); else { setNotice("Propuesta aceptada. Se habilitó el chat."); await loadProposals(); await loadMatches(); }
   }
   async function loadAdmin() {
-    const [{data: p},{data:a},{data:s},{data:r}] = await Promise.all([
-      db.from("profiles").select("*").order("created_at",{ascending:false}),
-      db.from("authorized_phones").select("*").order("created_at",{ascending:false}),
-      db.from("app_settings").select("value").eq("key","invite_code").maybeSingle(),
-      db.from("reports").select("*, reporter:profiles!reports_reporter_id_fkey(display_name), posts(offer)").order("created_at",{ascending:false})
-    ]);
-    setPeople(p || []); setAuthorized(a || []); setInviteCode(s?.value || ""); setReports(r || []);
+    const { data, error } = await db.functions.invoke("admin-user-management", { body: { action: "list" } });
+    if (error) { setNotice(error.message || "No se pudo cargar la administración."); return; }
+    setPeople(data?.members || []);
+    setAuthorized(data?.phones || []);
   }
   async function authenticate(e) {
     e.preventDefault(); setBusy(true); setNotice("");
@@ -137,7 +136,8 @@ export default function App() {
         setNotice("Registro enviado. Tu cuenta queda pendiente de aprobación del administrador. Si no ingresaste automáticamente, iniciá sesión.");
         setMode("login");
       } else {
-        const { error } = await db.auth.signInWithPassword({ phone:normalized, password });
+        const digits = normalized.replace(/\\D/g, "").replace(/^549/, "");
+        const { error } = await db.auth.signInWithPassword({ email: digits + "@usuarios.trueke-prg.app", password });
         if (error) throw error;
       }
     } catch (err) { setNotice(err.message || "No se pudo completar la operación."); }
@@ -209,15 +209,36 @@ export default function App() {
     setBusy(false);
   }
   async function addAuthorized(e) {
-    e.preventDefault(); const p=normalizePhone(newPhone);
-    if (demo) { setAuthorized([...authorized,{phone:p,note:"Agregado en demo"}]); setNewPhone(""); return; }
-    const {error}=await db.from("authorized_phones").insert({phone:p});
-    if (error) setNotice(error.message); else {setNewPhone("");loadAdmin();setNotice("Teléfono autorizado.");}
+    e.preventDefault();
+    const digits = newPhone.replace(/\\D/g, "");
+    if (!/^2964\\d{6}$/.test(digits)) { setNotice("El teléfono debe tener formato 2964 y seis números más."); return; }
+    const { error } = await db.functions.invoke("admin-user-management", { body: { action: "authorize", phone: digits } });
+    if (error) setNotice(error.message || "No se pudo autorizar el teléfono.");
+    else { setNewPhone(""); await loadAdmin(); setNotice("Teléfono autorizado."); }
+  }
+  async function createManagedUser(e) {
+    e.preventDefault();
+    const digits = newPhone.replace(/\\D/g, "");
+    if (!/^2964\\d{6}$/.test(digits)) { setNotice("El teléfono debe tener formato 2964 y seis números más."); return; }
+    setBusy(true);
+    const { error } = await db.functions.invoke("admin-user-management", { body: {
+      action: "authorize", phone: digits
+    }});
+    if (error) { setBusy(false); setNotice(error.message); return; }
+    const { error: createError, data } = await db.functions.invoke("admin-user-management", { body: {
+      action: "create_user", phone: digits, display_name: newUserName, password: newUserPassword
+    }});
+    setBusy(false);
+    if (createError) setNotice(createError.message || "No se pudo crear la cuenta.");
+    else {
+      setNewPhone(""); setNewUserName(""); setNewUserPassword("");
+      await loadAdmin();
+      setNotice("Cuenta creada y habilitada. Ya puede ingresar con su teléfono y contraseña.");
+    }
   }
   async function setMemberStatus(id,status) {
-    if (demo) { setPeople(people.map(p=>p.id===id?{...p,status}:p)); return; }
-    const {error}=await db.from("profiles").update({status}).eq("id",id);
-    if (error) setNotice(error.message); else loadAdmin();
+    const { error } = await db.from("profiles").update({ is_active: status === "active" }).eq("id", id);
+    if (error) setNotice(error.message); else { await loadAdmin(); setNotice(status === "active" ? "Usuario habilitado." : "Usuario bloqueado."); }
   }
   async function submitReport(e) {
     e.preventDefault();
@@ -259,7 +280,7 @@ export default function App() {
   const status = profile?.status;
   const initials = (profile?.display_name || "TP").slice(0,1).toUpperCase();
 
-  if (!profile && !session) return <main className="auth-shell"><div className="auth-card"><div className="brand-mark">T</div><p className="eyebrow">COMUNIDAD PRIVADA · RÍO GRANDE</p><h1>Trueke <span>PRG</span></h1><p className="muted">Lo que ya no necesitás puede ser justo lo que alguien está buscando.</p>{demo && <div className="demo-note">Vista de demostración: los datos se guardan solo en este navegador.</div>}<div className="switcher"><button className={mode==="login"?"selected":""} onClick={()=>setMode("login")}>Ingresar</button><button className={mode==="register"?"selected":""} onClick={()=>setMode("register")}>Crear cuenta</button></div><form onSubmit={authenticate} className="stack"><label>Teléfono celular<input value={phone} onChange={e=>setPhone(e.target.value)} placeholder="2964 123456" required /></label>{mode==="register" && <><label>Nombre<input value={name} onChange={e=>setName(e.target.value)} placeholder="Cómo te conocen en el grupo" required /></label><label>Código general del grupo<input value={invite} onChange={e=>setInvite(e.target.value)} placeholder="Código compartido en WhatsApp" required /></label></>}<label>Contraseña<input type="password" value={password} onChange={e=>setPassword(e.target.value)} placeholder="Mínimo 8 caracteres" minLength="8" required /></label><button className="primary wide" disabled={busy}>{busy?"Un momento…":mode==="register"?"Solicitar ingreso":"Entrar a Trueke"}</button></form>{notice && <p className="notice">{notice}</p>}{mode==="login" && <button type="button" className="outline wide" style={{marginTop:"14px",padding:"14px",fontSize:"14px"}} onClick={()=>{setMode("register");setNotice("");}}>¿Primera vez? CREAR CUENTA</button>}{mode==="register" && <button type="button" className="text-button" style={{width:"100%",padding:"12px"}} onClick={()=>{setMode("login");setNotice("");}}>Volver a ingresar</button>}<p className="tiny">El teléfono debe estar en la lista de miembros autorizados. Las cuentas nuevas requieren aprobación.</p></div></main>;
+  if (!profile && !session) return <main className="auth-shell"><div className="auth-card"><div className="brand-mark">T</div><p className="eyebrow">COMUNIDAD PRIVADA · RÍO GRANDE</p><h1>Trueke <span>PRG</span></h1><p className="muted">Lo que ya no necesitás puede ser justo lo que alguien está buscando.</p>{demo && <div className="demo-note">Vista de demostración: los datos se guardan solo en este navegador.</div>}<div className="switcher"><button className="selected" type="button">Ingresar</button></div><form onSubmit={authenticate} className="stack"><label>Teléfono celular<input value={phone} onChange={e=>setPhone(e.target.value)} placeholder="2964 123456" required /></label><label>Contraseña<input type="password" value={password} onChange={e=>setPassword(e.target.value)} placeholder="Mínimo 8 caracteres" minLength="8" required /></label><button className="primary wide" disabled={busy}>{busy?"Un momento…":mode==="register"?"Solicitar ingreso":"Entrar a Trueke"}</button></form>{notice && <p className="notice">{notice}</p>}<p className="tiny">Ingresá con el teléfono y la contraseña que te entregó el administrador.</p></div></main>;
 
   if (profile && !profile.display_name?.trim()) return <main className="auth-shell"><div className="auth-card"><div className="brand-mark">T</div><p className="eyebrow">TU PERFIL · TRUEKE PRG</p><h1>¿Cómo te llamás?</h1><p className="muted">Antes de entrar a la comunidad, necesitamos que cargues tu nombre. Así los demás miembros pueden reconocerte.</p><form className="stack" onSubmit={completeRequiredName}><label>Tu nombre<input value={name} onChange={e=>setName(e.target.value)} placeholder="Escribí tu nombre" autoComplete="name" minLength="2" maxLength="60" required autoFocus /></label><button className="primary wide" disabled={busy}>{busy ? "Guardando…" : "Guardar y continuar"}</button></form>{notice && <p className="notice">{notice}</p>}<button className="text-button" onClick={signOut}>Cerrar sesión</button></div></main>;
 
@@ -273,7 +294,27 @@ export default function App() {
   {tab==="Mensajes" && <section className="empty-panel"><div className="empty-icon">☷</div><h3>Mensajes privados</h3><p>El chat se habilita cuando ambas personas aceptan el intercambio.</p>{activeMatch?<div className="chat-box"><div className="chat-messages">{messages.map(m=><p className="chat-bubble" key={m.id}>{m.body}</p>)}</div><form onSubmit={sendMessage} className="chat-send"><input value={messageText} onChange={e=>setMessageText(e.target.value)} placeholder="Escribí un mensaje…"/><button className="primary">Enviar</button></form></div>:<span className="muted">Elegí un match para abrir la conversación.</span>}</section>}
   {tab==="Mis publicaciones" && <><div className="section-head"><div><h3>Lo que publicaste</h3><p>Administrá tus propuestas de intercambio.</p></div><button className="outline" onClick={()=>setShowPost(true)}>＋ Nueva publicación</button></div><div className="post-grid">{myPosts.map(p=><article className="post-card" key={p.id}><div className="post-placeholder"><span>⇄</span></div><div className="post-content"><div className="trade-line"><small>OFRECÉS</small><p>{p.offer}</p></div><div className="trade-line looking"><small>BUSCÁS</small><p>{p.looking_for}</p></div></div></article>)}{!myPosts.length&&<p className="muted">Todavía no publicaste nada.</p>}</div></>}
   {tab==="Perfil" && <section className="form-panel"><h3>Tu perfil</h3><p className="muted">Mostrá quién sos dentro de la comunidad.</p><form className="stack" onSubmit={saveProfile}><label>Nombre<input value={name || profile?.display_name || ""} onChange={e=>setName(e.target.value)} placeholder="Tu nombre"/></label><label>Descripción breve<textarea value={bio || profile?.bio || ""} onChange={e=>setBio(e.target.value)} placeholder="Contá algo sobre vos…" rows="4"/></label><label>Teléfono registrado<input value={profile?.phone || ""} disabled/></label><button className="primary">Guardar perfil</button></form></section>}
-  {tab==="Administración" && profile?.role==="admin" && <div className="admin-layout"><section className="form-panel"><h3>Accesos autorizados</h3><p className="muted">Solo los teléfonos cargados acá pueden solicitar ingreso.</p><form className="inline-form" onSubmit={addAuthorized}><input value={newPhone} onChange={e=>setNewPhone(e.target.value)} placeholder="Número, ej. 2964 123456" required/><button className="primary">Agregar</button></form>{authorized.map(a=><div className="admin-row" key={a.phone}><span>{a.phone}</span><small>{a.note||"Autorizado"}</small><button className="text-button" onClick={async()=>{if(!demo){await db.from("authorized_phones").delete().eq("phone",a.phone);loadAdmin()}else setAuthorized(authorized.filter(x=>x.phone!==a.phone))}}>Quitar</button></div>)}</section><section className="form-panel"><h3>Código general</h3><p className="muted">Compartilo una sola vez en el grupo. Cambialo cuando quieras.</p><form className="stack" onSubmit={saveInvite}><input value={typeof inviteCode==="string"?inviteCode:JSON.stringify(inviteCode).replaceAll('"',"")} onChange={e=>setInviteCode(e.target.value)} placeholder="Nuevo código general"/><button className="primary">Guardar código</button></form></section><section className="form-panel full"><h3>Solicitudes y miembros</h3>{people.map(p=><div className="admin-row" key={p.id}><div><b>{p.display_name || "Sin nombre"}</b><small>{p.phone}</small></div><span className={"status "+p.status}>{p.status}</span>{p.status==="pending"&&<button className="primary compact" onClick={()=>setMemberStatus(p.id,"active")}>Aprobar</button>}{p.status!=="blocked"?<button className="text-button" onClick={()=>setMemberStatus(p.id,"blocked")}>Bloquear</button>:<button className="text-button" onClick={()=>setMemberStatus(p.id,"active")}>Reactivar</button>}</div>)}</section><section className="form-panel full"><h3>Denuncias</h3>{reports.map(r=><div className="admin-row" key={r.id}><div><b>{r.posts?.offer || "Publicación eliminada"}</b><small>{r.reason} · {r.reporter?.display_name || "Miembro"}</small></div><span className={"status "+r.status}>{r.status}</span>{r.status!=="closed"&&<button className="text-button" onClick={()=>updateReport(r.id,"closed")}>Cerrar</button>}</div>)}{!reports.length&&<p className="muted">No hay denuncias pendientes.</p>}</section></div>}
+  {tab==="Administración" && profile?.role==="admin" && <div className="admin-layout">
+    <section className="form-panel full">
+      <h3>Crear cuentas de usuarios</h3>
+      <p className="muted">Vos autorizás el teléfono y creás la cuenta. No hay registro libre ni código compartido. El usuario entra con su número y la contraseña que le entregues.</p>
+      <form className="stack" onSubmit={createManagedUser}>
+        <label>Teléfono (2964 + seis números)<input value={newPhone} onChange={e=>setNewPhone(e.target.value)} placeholder="2964 123456" inputMode="numeric" required /></label>
+        <label>Nombre del usuario<input value={newUserName} onChange={e=>setNewUserName(e.target.value)} placeholder="Nombre y apellido" minLength="2" maxLength="60" required /></label>
+        <label>Contraseña inicial<input type="text" value={newUserPassword} onChange={e=>setNewUserPassword(e.target.value)} placeholder="Mínimo 8 caracteres" minLength="8" required /></label>
+        <button className="primary" disabled={busy}>{busy ? "Creando cuenta…" : "Autorizar y crear usuario"}</button>
+      </form>
+    </section>
+    <section className="form-panel">
+      <h3>Lista de teléfonos autorizados</h3>
+      <p className="muted">Solo estos números pueden tener cuenta.</p>
+      {authorized.map(a=><div className="admin-row" key={a.phone}><span>{a.phone}</span><span className={"status "+(a.is_active?"active":"blocked")}>{a.is_active?"Autorizado":"Desactivado"}</span><button className="text-button" onClick={async()=>{const digits=a.phone.replace(/\\D/g,"").replace(/^549/,"");const {error}=await db.functions.invoke("admin-user-management",{body:{action:"deactivate",phone:digits}});if(error)setNotice(error.message);else loadAdmin();}}>Desactivar</button></div>)}
+    </section>
+    <section className="form-panel">
+      <h3>Usuarios creados</h3>
+      {people.map(p=><div className="admin-row" key={p.id}><div><b>{p.display_name || "Sin nombre"}</b><small>{p.phone}</small></div><span className={"status "+(p.is_active?"active":"blocked")}>{p.is_active?"Activo":"Bloqueado"}</span>{p.is_active?<button className="text-button" onClick={()=>setMemberStatus(p.id,"blocked")}>Bloquear</button>:<button className="text-button" onClick={()=>setMemberStatus(p.id,"active")}>Habilitar</button>}</div>)}
+    </section>
+  </div>}
   <footer>Trueke PRG <span>·</span> Una comunidad para compartir, reutilizar e intercambiar.</footer>
   </main>
   {reportPost && <div className="modal-backdrop" onClick={()=>setReportPost(null)}><div className="modal" onClick={e=>e.stopPropagation()}><button className="modal-close" onClick={()=>setReportPost(null)}>×</button><p className="eyebrow">REPORTAR PUBLICACIÓN</p><h2>¿Qué querés informar?</h2><form className="stack" onSubmit={submitReport}><label>Motivo<textarea value={reportReason} onChange={e=>setReportReason(e.target.value)} placeholder="Ej. ofrece dinero o no respeta las reglas…" rows="4" required/></label><button className="primary wide">Enviar denuncia</button></form></div></div>}
