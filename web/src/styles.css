@@ -219,3 +219,25 @@
  .swipe-actions{margin-top:3px}
  .swipe-actions button{width:43px;height:43px}
 }
+
+
+/* Evitar que el navegador desplace el login al abrir el teclado móvil */
+@media(max-width:640px){
+ html,body,#root{width:100%;height:100%;min-height:0;overflow:hidden;overscroll-behavior:none}
+ body:has(.auth-shell){position:fixed;inset:0;width:100%;height:100%;overflow:hidden}
+ .auth-shell{position:fixed;inset:0;width:100%;height:100%;height:100dvh;min-height:0;overflow:hidden;overscroll-behavior:none;display:block}
+ .auth-panel{position:absolute;inset:0;width:100%;height:100%;height:100dvh;min-height:0;overflow:hidden;overscroll-behavior:contain;justify-content:flex-start;padding:78px 22px 12px}
+ .mobile-brand{position:absolute;top:17px;left:22px;margin:0}
+ .auth-card{width:min(100%,390px);margin:0 auto;flex:none}
+ .auth-card input{font-size:16px!important;min-height:42px}
+ .auth-card form{gap:9px}
+ .auth-panel:has(.auth-card input:focus){padding-top:12px}
+ .auth-panel:has(.auth-card input:focus) .mobile-brand{display:none}
+ .auth-panel:has(.auth-card input:focus) .auth-card h2{font-size:21px;margin:0 0 3px}
+ .auth-panel:has(.auth-card input:focus) .auth-card>.muted{margin-bottom:8px}
+ .auth-panel:has(.auth-card input:focus) .auth-card form{gap:7px}
+ .auth-panel:has(.auth-card input:focus) .auth-card input{min-height:39px;height:39px}
+ .auth-panel:has(.auth-card input:focus) .auth-card .full{height:39px;min-height:39px}
+ .auth-panel:has(.auth-card input:focus) .auth-card .privacy-note,
+ .auth-panel:has(.auth-card input:focus) .panel-bottom{display:none}
+}
