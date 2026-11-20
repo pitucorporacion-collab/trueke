@@ -9,7 +9,6 @@ import {
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 const supabase = supabaseUrl && supabaseKey ? createClient(supabaseUrl, supabaseKey) : null;
-const categories = ['Todo', 'Con fotos', 'Río Grande', 'Tolhuin', 'Servicios'];
 const reasons = ['Venta de dinero o precios', 'Contenido inapropiado', 'Posible estafa', 'Spam', 'Otro'];
 
 function App() {
@@ -34,7 +33,6 @@ function App() {
   const [phone,setPhone] = useState('');
   const [password,setPassword] = useState('');
   const [query,setQuery] = useState('');
-  const [category,setCategory] = useState('Todo');
   const [page,setPage] = useState('explore');
   const [showCreate,setShowCreate] = useState(false);
   const [selectedListing,setSelectedListing] = useState(null);
@@ -128,11 +126,9 @@ function App() {
   }
 
   const filtered = useMemo(() => listings.filter(item => {
-    const text = [item.title,item.description,item.looking_for,item.location,item.profiles?.display_name].join(' ').toLowerCase();
-    const matchesText = text.includes(query.toLowerCase());
-    const categoryMatch = category === 'Todo' || (category === 'Con fotos' ? (item.listing_images || []).length > 0 : category === 'Servicios' ? /servicio|clase|reparación|ayuda/i.test(text) : item.location?.toLowerCase().includes(category.toLowerCase()));
-    return matchesText && categoryMatch;
-  }),[listings,query,category]);
+    const text = [item.title,item.description,item.looking_for,item.profiles?.display_name].join(' ').toLowerCase();
+    return text.includes(query.toLowerCase()) && (item.listing_images || []).length > 0;
+  }),[listings,query]);
 
   function selectImages(files) { setImages(Array.from(files || []).slice(0,4)); }
 
@@ -148,11 +144,12 @@ function App() {
   async function publishListing(e) {
     e.preventDefault();
     if (!form.title.trim() || !form.looking_for.trim()) return;
+    if (!images.length) { setNotice('Para publicar, tenés que agregar al menos una foto.'); return; }
     setSaving(true); setNotice('');
     try {
       const {data:listing,error} = await supabase.from('listings').insert({
         user_id:session.user.id,title:form.title.trim(),description:form.description.trim(),
-        looking_for:form.looking_for.trim(),location:form.location.trim(),status:'published'
+        looking_for:form.looking_for.trim(),location:'Río Grande',status:'published'
       }).select().single();
       if (error) throw error;
       for (let i=0;i<images.length;i++) {
@@ -300,7 +297,6 @@ function App() {
         <section className="explore-section" id="explorar">
           <div className="section-heading"><div><span className="eyebrow">LA COMUNIDAD EN MOVIMIENTO</span><h2>Encontrá tu próximo trueque</h2><p>Objetos, habilidades y servicios. Todo se puede intercambiar.</p></div><button className="outline-btn desktop-publish" onClick={()=>setShowCreate(true)}><Plus size={17}/> Publicar algo</button></div>
           <div className="search-row"><div className="search-box"><Search size={19}/><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="¿Qué estás buscando?"/></div></div>
-          <div className="category-row">{categories.map(c=><button key={c} onClick={()=>setCategory(c)} className={category===c?'category active':'category'}>{c}</button>)}</div>
           {notice&&<div className="notice"><Check size={16}/>{notice}<button onClick={()=>setNotice('')}><X size={15}/></button></div>}
           {loading?<div className="loading">Cargando los trueques de la comunidad…</div>:<div className="listing-grid">{filtered.length?filtered.map((item,index)=><article className="listing-card" key={item.id}>
             <div className={'listing-photo photo-'+(index%4)}>{photos[item.id]?<img src={photos[item.id]} alt={item.title}/>:<div className="photo-placeholder"><Tag size={31}/><span>TRUEQUE</span></div>}<span className="photo-tag">DISPONIBLE</span></div>
@@ -334,8 +330,8 @@ function App() {
       <label>¿Qué ofrecés?<input value={form.title} onChange={e=>setForm({...form,title:e.target.value})} placeholder="Ej. Bicicleta rodado 29" maxLength={100} required/></label>
       <label>Contá un poco más<textarea value={form.description} onChange={e=>setForm({...form,description:e.target.value})} placeholder="Estado, medidas, detalles o cómo es el servicio…" rows={3} maxLength={1000}/></label>
       <label>¿Qué te gustaría recibir a cambio?<input value={form.looking_for} onChange={e=>setForm({...form,looking_for:e.target.value})} placeholder="Ej. Una mesa, clases de inglés, ayuda…" maxLength={300} required/></label>
-      <label>¿Dónde estás? <input value={form.location} onChange={e=>setForm({...form,location:e.target.value})} placeholder="Río Grande, Tolhuin…" maxLength={100}/></label>
-      <div className="upload-area"><label className="upload-label"><ImagePlus size={20}/><span><b>Sumá fotos</b><small>Hasta 4 imágenes · se optimizan automáticamente</small></span><input type="file" accept="image/*" multiple onChange={e=>selectImages(e.target.files)} hidden/></label><div className="image-count">{images.length}/4</div></div>
+      <p className="location-fixed"><MapPin size={15}/> Publicaciones de Río Grande</p>
+      <div className="upload-area"><label className="upload-label"><ImagePlus size={20}/><span><b>Sumá al menos una foto *</b><small>Obligatoria · hasta 4 imágenes · se optimizan automáticamente</small></span><input type="file" accept="image/*" multiple onChange={e=>selectImages(e.target.files)} hidden/></label><div className="image-count">{images.length}/4</div></div>
       {images.length>0&&<div className="selected-files">{images.map((f,i)=><span key={i}>{f.name}<button type="button" onClick={()=>setImages(images.filter((_,j)=>j!==i))}><X size={13}/></button></span>)}</div>}
       <div className="form-foot"><span><ShieldCheck size={15}/> Publicación automática para todos los miembros.</span><button className="primary-btn" disabled={saving}>{saving?'Publicando…':'Publicar trueque'} <ArrowRight size={16}/></button></div>
     </form></div></div>}
