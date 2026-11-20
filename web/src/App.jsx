@@ -50,9 +50,10 @@ function App() {
   const [proposalOpen,setProposalOpen] = useState(false);
   const [form,setForm] = useState({title:'',description:'',looking_for:'',location:'Río Grande'});
   const [images,setImages] = useState([]);
-  const [menuOpen,setMenuOpen] = useState(false);
-  const [skippedListings,setSkippedListings] = useState([]);
+  const [cycleSeen,setCycleSeen] = useState([]);
+  const [swipeDecisions,setSwipeDecisions] = useState({});
   const [swipeStart,setSwipeStart] = useState(null);
+  const [swipeBusy,setSwipeBusy] = useState(false);
   const categories = ['Tecnología','Muebles','Moda','Súper','Herramientas','Música','Juguetes y varios'];
   const [formCategory,setFormCategory] = useState('Juguetes y varios');
 
@@ -107,6 +108,8 @@ function App() {
       supabase.from('direct_proposals').select('*').or('sender_id.eq.'+session.user.id+',recipient_id.eq.'+session.user.id).order('created_at',{ascending:false})
     ]);
     setMatches(matchRows || []);
+    const {data:swipeRows} = await supabase.from('listing_swipes').select('listing_id,decision').eq('user_id',session.user.id);
+    setSwipeDecisions(Object.fromEntries((swipeRows || []).map(row=>[row.listing_id,row.decision])));
     setContacts(contactRows || []);
     setProposals(proposalRows || []);
     if (me?.role === 'admin') {
@@ -138,17 +141,29 @@ function App() {
     finally { setAuthBusy(false); }
   }
 
-  const filtered = useMemo(() => listings.filter(item => {
+  const eligibleListings = useMemo(() => listings.filter(item => {
     const text = [item.title,item.description,item.looking_for,item.profiles?.display_name].join(' ').toLowerCase();
-    return item.user_id !== session?.user?.id && !skippedListings.includes(item.id) &&
-      text.includes(query.toLowerCase()) && (item.listing_images || []).length > 0;
-  }),[listings,query,session,skippedListings]);
-  const currentListing = filtered[0];
-  function swipeListing(direction) {
-    if (!currentListing) return;
-    if (direction === 'right') addInterest(currentListing);
-    else setNotice('Publicación descartada.');
-    setSkippedListings(prev => [...prev,currentListing.id]);
+    return item.user_id !== session?.user?.id && text.includes(query.toLowerCase()) && (item.listing_images || []).length > 0;
+  }),[listings,query,session]);
+  const filtered = eligibleListings.filter(item => !cycleSeen.includes(item.id));
+  const currentListing = filtered[0] || eligibleListings[0];
+  async function swipeListing(direction) {
+    if (!currentListing || swipeBusy) return;
+    setSwipeBusy(true);
+    const decision = direction === 'right' ? 'like' : 'dislike';
+    const {error} = await supabase.rpc('record_listing_swipe',{p_listing_id:currentListing.id,p_decision:decision});
+    setSwipeBusy(false);
+    if (error) { setNotice(error.message || 'No se pudo guardar tu decisión.'); return; }
+    setSwipeDecisions(prev=>({...prev,[currentListing.id]:decision}));
+    const nextSeen = [...cycleSeen,currentListing.id];
+    if (nextSeen.length >= eligibleListings.length) {
+      setCycleSeen([]);
+      setNotice(direction === 'right' ? '¡Me gusta registrado! Ya recorriste todos los artículos; volvemos a empezar.' : 'Artículo descartado. Ya recorriste todos; volvemos a empezar.');
+    } else {
+      setCycleSeen(nextSeen);
+      setNotice(direction === 'right' ? '¡Me gusta registrado!' : 'Artículo descartado.');
+    }
+    await loadData();
   }
   function finishSwipe(e) {
     if (swipeStart === null) return;
@@ -196,10 +211,19 @@ function App() {
 
   async function addInterest(item) {
     if (item.user_id === session.user.id) return;
-    const {error} = await supabase.from('listing_interests').insert({listing_id:item.id,user_id:session.user.id});
-    if (error && !String(error.message).includes('duplicate')) setNotice(error.message);
-    else setNotice('Interés registrado. Si la otra persona también se interesa por una de tus publicaciones, tendrán un match.');
+    const {error} = await supabase.rpc('record_listing_swipe',{p_listing_id:item.id,p_decision:'like'});
+    if (error) setNotice(error.message);
+    else setNotice('¡Me gusta registrado! Si la otra persona también eligió tu publicación, tendrán un match.');
     await loadData();
+  }
+
+  async function deleteListing(item) {
+    if (!window.confirm('¿Querés borrar la publicación «'+item.title+'»? Esta acción no se puede deshacer.')) return;
+    const paths = (item.listing_images || []).map(photo=>photo.storage_path).filter(Boolean);
+    if (paths.length) await supabase.storage.from('listing-photos').remove(paths);
+    const {error} = await supabase.from('listings').delete().eq('id',item.id).eq('user_id',session.user.id);
+    if (error) setNotice(error.message || 'No se pudo borrar la publicación.');
+    else { setNotice('Publicación eliminada.'); await loadData(); }
   }
 
   async function sendProposal(e) {
@@ -346,21 +370,36 @@ function App() {
   return <div className="app-shell">
     <header className="topbar">
       <a className="brand" href="#" onClick={()=>setPage('explore')}><div className="brand-mark"><Leaf size={21}/></div><span>TRUEKE <b>PRG</b></span></a>
-      <div className="app-menu-wrap"><button className="app-menu-button" onClick={()=>setMenuOpen(v=>!v)}><Menu size={19}/> Menú</button>
-        {menuOpen&&<div className="app-menu">
-          <button onClick={()=>{setPage('explore');setMenuOpen(false)}}>Descubrir trueques</button>
-          <button onClick={()=>{setShowCreate(true);setMenuOpen(false)}}><Plus size={16}/> Subir una publicación</button>
-          <button onClick={()=>{setPage('matches');setMenuOpen(false)}}><Heart size={16}/> Mis intercambios <span>{matches.length}</span></button>
-          {profile?.role==='admin'&&<button onClick={()=>{setPage('admin');setMenuOpen(false)}}><ShieldCheck size={16}/> Administración</button>}
-          <button onClick={()=>{setPasswordTarget(null);setTemporaryPassword('');setNewOwnPassword('');setPasswordModal(true);setMenuOpen(false)}}><ShieldCheck size={16}/> Mi cuenta y contraseña</button>
-          <button onClick={logout}><LogOut size={16}/> Cerrar sesión</button>
-        </div>}
-      </div>
+      <button className="app-menu-button" onClick={()=>setPage('menu')}><Menu size={19}/> Menú</button>
       <div className="top-actions"><button className="icon-btn" aria-label="Notificaciones" onClick={()=>profile?.role==='admin'?setPage('admin'):setPage('matches')}><Bell size={19}/>{unreadCount>0&&<i className="notification-dot"/>}</button><div className="user-chip"><div className="avatar">{(profile?.display_name||'U').slice(0,1).toUpperCase()}</div><span>{profile?.display_name||'Mi cuenta'}</span>{profile?.role==='admin'&&<span className="admin-pill">ADMIN</span>}</div></div>
     </header>
     <main>
+      {page==='menu'&&<section className="menu-page">
+        <div className="menu-page-head"><span className="eyebrow">TU ESPACIO EN TRUEKE</span><h1>¿Qué hacemos hoy?</h1><p>Todo lo que necesitás, en un solo lugar.</p></div>
+        <div className="menu-page-grid">
+          <button className="menu-tile menu-tile-primary" onClick={()=>setPage('explore')}><span className="menu-tile-icon"><Heart size={25}/></span><b>Descubrir Truekes</b><small>Ver productos y encontrar algo que te interese</small><ArrowRight size={19}/></button>
+          <button className="menu-tile" onClick={()=>setPage('my-listings')}><span className="menu-tile-icon"><Tag size={24}/></span><b>Mis publicaciones</b><small>Ver, administrar o borrar tus artículos</small><ArrowRight size={19}/></button>
+          <button className="menu-tile" onClick={()=>setPage('matches')}><span className="menu-tile-icon"><Handshake size={24}/></span><b>Intercambio</b><small>Ver tus matches y coordinar por WhatsApp</small><ArrowRight size={19}/></button>
+          <button className="menu-tile" onClick={()=>setPage('account')}><span className="menu-tile-icon"><ShieldCheck size={24}/></span><b>Mi cuenta y contraseña</b><small>Administrar la seguridad de tu cuenta</small><ArrowRight size={19}/></button>
+          {profile?.role==='admin'&&<button className="menu-tile" onClick={()=>setPage('admin')}><span className="menu-tile-icon"><Users size={24}/></span><b>Administración</b><small>Gestionar miembros y reportes</small><ArrowRight size={19}/></button>}
+          <button className="menu-tile menu-tile-logout" onClick={logout}><span className="menu-tile-icon"><LogOut size={23}/></span><b>Cerrar sesión</b><small>Salir de tu cuenta de Trueke PRG</small><ArrowRight size={19}/></button>
+        </div>
+        <button className="menu-back" onClick={()=>setPage('explore')}>Volver a descubrir productos</button>
+      </section>}
+      {page==='my-listings'&&<section className="dashboard-section">
+        <span className="eyebrow">LO QUE COMPARTÍS</span><h1>Mis publicaciones</h1><p className="muted">Administrá tus artículos y eliminá los que ya no estén disponibles.</p>
+        <div className="my-listings-grid">{listings.filter(item=>item.user_id===session.user.id).map(item=><article className="my-listing-card" key={item.id}>{photos[item.id]&&<img src={photos[item.id]} alt={item.title}/>}<div><span className="eyebrow">{item.category||'Trueque'}</span><h3>{item.title}</h3><p>Busco: {item.looking_for}</p><button className="delete-listing-btn" onClick={()=>deleteListing(item)}><XCircle size={16}/> Borrar publicación</button></div></article>)}</div>
+        {listings.filter(item=>item.user_id===session.user.id).length===0&&<div className="empty-state"><Tag size={34}/><h3>Todavía no publicaste nada</h3><p>Subí tu primer artículo para empezar a intercambiar.</p><button className="primary-btn" onClick={()=>setShowCreate(true)}><Plus size={17}/> Publicar algo</button></div>}
+        <button className="menu-back" onClick={()=>setPage('menu')}>Volver al menú</button>
+      </section>}
+      {page==='account'&&<section className="dashboard-section account-page">
+        <span className="eyebrow">TU PERFIL</span><h1>Mi cuenta</h1><p className="muted">Tus datos de acceso y seguridad.</p>
+        <div className="account-summary"><div className="avatar account-avatar">{(profile?.display_name||'U').slice(0,1).toUpperCase()}</div><div><b>{profile?.display_name||'Mi cuenta'}</b><span>{session.user.email}</span></div></div>
+        <button className="primary-btn" onClick={()=>{setPasswordTarget(null);setTemporaryPassword('');setNewOwnPassword('');setPasswordModal(true)}}><ShieldCheck size={17}/> Cambiar contraseña</button>
+        <button className="menu-back" onClick={()=>setPage('menu')}>Volver al menú</button>
+      </section>}
       {page==='explore'&&<section className="swipe-home">
-        <div className="swipe-heading"><div><span className="eyebrow">TRUEKE PRG</span><h1>Descubrí intercambios</h1><p>Deslizá a la derecha si te interesa. A la izquierda para seguir.</p></div>
+        <div className="swipe-heading"><div><span className="eyebrow">TRUEKE PRG</span><h1>Descubrí Truekes</h1><p>Elegí lo que te interesa. Cada decisión queda guardada.</p></div>
           <div className="swipe-search"><Search size={17}/><input value={query} onChange={e=>{setQuery(e.target.value);setSkippedListings([])}} placeholder="Buscar algo…"/></div>
         </div>
         {notice&&<div className="notice"><Check size={16}/>{notice}<button onClick={()=>setNotice('')}><X size={15}/></button></div>}
@@ -374,15 +413,15 @@ function App() {
               <h2>{currentListing.title}</h2>
               {currentListing.description&&<p className="swipe-description">{currentListing.description}</p>}
               <div className="swipe-looking"><small>ESTÁ BUSCANDO</small><div className="tag-list">{currentListing.looking_for.split(/[,;]+/).map((tag,i)=><span key={i}>{tag.trim()}</span>)}</div></div>
-              <div className="swipe-actions"><button className="swipe-no" onClick={()=>swipeListing('left')} aria-label="No me interesa"><XCircle size={25}/></button><button className="swipe-yes" onClick={()=>swipeListing('right')} aria-label="Me interesa"><Heart size={24}/></button></div>
+              <div className="swipe-actions"><button className="swipe-no" disabled={swipeBusy} onClick={()=>swipeListing('left')} aria-label="No me gusta"><XCircle size={25}/><small>No me gusta</small></button><button className="swipe-yes" disabled={swipeBusy} onClick={()=>swipeListing('right')} aria-label="Me gusta"><Heart size={24}/><small>Me gusta</small></button></div>
             </div>
           </article>
-          <div className="swipe-count">{filtered.length} publicaciones para descubrir · deslizá la tarjeta</div>
+          <div className="swipe-count">{filtered.length} publicaciones en esta vuelta · las decisiones anteriores se actualizan si volvés a elegir</div>
         </div>:<div className="empty-state swipe-empty"><Handshake size={36}/><h3>Por ahora no hay más publicaciones</h3><p>Volvé más tarde o publicá algo para intercambiar.</p><button className="primary-btn" onClick={()=>setShowCreate(true)}><Plus size={17}/> Publicar algo</button></div>}
       </section>}
       {page==='matches'&&<section className="dashboard-section"><span className="eyebrow">TUS CONEXIONES</span><h1>Mis matches</h1><p className="muted">Cuando dos personas se interesan mutuamente, pueden coordinar por WhatsApp.</p>
         {matches.length===0&&<div className="empty-state"><Handshake size={34}/><h3>Todavía no tenés matches</h3><p>Marcá «Me interesa» en publicaciones. Si la otra persona también se interesa por algo tuyo, aparecerá acá.</p></div>}
-        <div className="match-list">{matches.map(m=>{const c=contactMap[m.id];return <article className="match-card" key={m.id}><div className="match-avatar">{(c?.display_name||'M').slice(0,1).toUpperCase()}</div><div className="match-info"><b>{c?.display_name||'Miembro de Trueke'}</b><small>Match confirmado · {new Date(m.created_at).toLocaleDateString('es-AR')}</small><span>{c?.phone||'Contacto protegido'}</span></div>{c?.phone&&<a className="whatsapp-btn" href={'https://wa.me/'+c.phone.replace(/\D/g,'')} target="_blank" rel="noreferrer"><MessageCircle size={17}/> Abrir chat</a>}</article>})}</div>
+        <div className="match-list">{matches.map(m=>{const c=contactMap[m.id];const mine=m.user_one===session.user.id?listings.find(l=>l.id===m.listing_one_id):listings.find(l=>l.id===m.listing_two_id);const theirs=m.user_one===session.user.id?listings.find(l=>l.id===m.listing_two_id):listings.find(l=>l.id===m.listing_one_id);const itemA=mine?.title||'tu publicación';const itemB=theirs?.title||'su publicación';const chatText=encodeURIComponent('¡Hola! Hicimos match en Trueke PRG por «'+itemA+'» y «'+itemB+'». ¿Coordinamos el intercambio?');return <article className="match-card" key={m.id}><div className="match-avatar">{(c?.display_name||'M').slice(0,1).toUpperCase()}</div><div className="match-info"><b>{c?.display_name||'Miembro de Trueke'}</b><small>Match confirmado · {new Date(m.created_at).toLocaleDateString('es-AR')}</small><span className="match-items">Artículos del match: <strong>{itemA}</strong> ↔ <strong>{itemB}</strong></span><span>{c?.phone||'Contacto protegido'}</span></div>{c?.phone&&<a className="whatsapp-btn" href={'https://wa.me/'+c.phone.replace(/\D/g,'')+'?text='+chatText} target="_blank" rel="noreferrer"><MessageCircle size={17}/> Abrir chat</a>}</article>})}</div>
         {incoming.length>0&&<><h2 className="subheading">Propuestas recibidas</h2>{incoming.map(p=><article className="proposal-card" key={p.id}><div><b>Propuesta directa</b><p>{p.message}</p><small>{new Date(p.created_at).toLocaleDateString('es-AR')}</small></div><button className="primary-btn" onClick={()=>acceptProposal(p.id)}><CheckCircle2 size={16}/> Aceptar y hacer match</button></article>)}</>}
         {outgoing.length>0&&<><h2 className="subheading">Propuestas enviadas</h2>{outgoing.map(p=><article className="proposal-card" key={p.id}><div><b>{p.status==='accepted'?'Aceptada':p.status==='rejected'?'Rechazada':'Pendiente'}</b><p>{p.message}</p></div></article>)}</>}
       </section>}
