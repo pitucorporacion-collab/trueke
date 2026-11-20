@@ -214,8 +214,8 @@ function App() {
   async function createManagedMember(e) {
     e.preventDefault();
     setNotice('');
-    const cleanPhone = newMemberPhone.replace(/\\D/g,'');
-    if (!/^2964\\d{6}$/.test(cleanPhone)) { setNotice('El teléfono debe tener 10 números: 2964 y otros 6 números.'); return; }
+    const cleanPhone = newMemberPhone.replace(/\D/g,'');
+    if (!/^2964\d{6}$/.test(cleanPhone)) { setNotice('El teléfono debe tener 10 números: 2964 y otros 6 números.'); return; }
     if (newMemberName.trim().length < 2) { setNotice('Ingresá el nombre del usuario.'); return; }
     if (newMemberPassword.length < 8) { setNotice('La contraseña debe tener al menos 8 caracteres.'); return; }
     setCreatingMember(true);
@@ -350,7 +350,7 @@ function App() {
           <h2>Crear usuario</h2>
           <p className="muted">El teléfono queda autorizado y la cuenta se crea directamente. No hay registro libre.</p>
           <form className="create-form" onSubmit={createManagedMember}>
-            <label>Teléfono (2964 + seis números)<input type="tel" inputMode="numeric" value={newMemberPhone} onChange={e=>setNewMemberPhone(e.target.value.replace(/\\D/g,'').slice(0,10))} placeholder="2964XXXXXX" maxLength={10} pattern="2964[0-9]{6}" required/></label>
+            <label>Teléfono (2964 + seis números)<input type="tel" inputMode="numeric" value={newMemberPhone} onChange={e=>setNewMemberPhone(e.target.value.replace(/\D/g,'').slice(0,10))} placeholder="2964XXXXXX" maxLength={10} pattern="2964[0-9]{6}" required/></label>
             <label>Nombre del usuario<input value={newMemberName} onChange={e=>setNewMemberName(e.target.value)} placeholder="Nombre y apellido" minLength={2} maxLength={60} required/></label>
             <label>Contraseña inicial<input type="text" value={newMemberPassword} onChange={e=>setNewMemberPassword(e.target.value)} placeholder="Mínimo 8 caracteres" minLength={8} required/></label>
             <button className="primary-btn" disabled={creatingMember}>{creatingMember?'Creando cuenta…':'Autorizar y crear cuenta'}</button>
