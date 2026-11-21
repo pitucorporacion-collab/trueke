@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import {
-  ArrowRight, ArrowUpRight, Bell, Check, Heart, ImagePlus, Smartphone, LogOut, Menu, XCircle,
+  ArrowLeft, ArrowRight, ArrowUpRight, Bell, Check, Heart, ImagePlus, Smartphone, LogOut, Menu, XCircle,
   MapPin, Plus, Search, ShieldCheck, Tag, X, MessageCircle, Flag,
   Users, Ban, CheckCircle2, Send, Handshake, AlertTriangle
 } from 'lucide-react';
