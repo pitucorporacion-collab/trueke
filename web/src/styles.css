@@ -784,3 +784,31 @@
   .access-request-form .primary-btn{height:40px;min-height:40px}
   .access-request-foot{display:none}
 }
+
+
+/* Último ajuste de solicitud: subir el contenido y despejar el botón del teclado */
+@media(max-width:640px){
+  .access-request-screen{
+    padding-top:2px;
+    padding-bottom:4px;
+  }
+  .access-request-card{
+    transform:translateY(-5px);
+    padding-top:9px;
+    padding-bottom:8px;
+  }
+  .access-request-card>.muted{margin-bottom:6px}
+  .access-request-form{gap:6px}
+  .access-request-form input{min-height:36px}
+  .access-request-form .primary-btn{height:38px;min-height:38px;margin-top:0}
+}
+@media(max-height:700px) and (max-width:640px){
+  .access-request-screen{padding-top:1px;padding-bottom:2px}
+  .access-request-card{padding-top:7px;padding-bottom:6px}
+  .access-request-card h1{font-size:22px;margin-bottom:3px}
+  .access-request-card>.muted{font-size:10px;line-height:1.25;margin-bottom:5px}
+  .access-request-form{gap:5px}
+  .access-request-form label{gap:3px}
+  .access-request-form input{min-height:34px}
+  .access-request-form .primary-btn{height:36px;min-height:36px}
+}
