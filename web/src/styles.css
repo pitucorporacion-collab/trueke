@@ -601,3 +601,30 @@
 .swipe-info-row .swipe-looking .tag-list{
   vertical-align:top;
 }
+
+
+/* BUSCA: etiqueta y respuesta en la misma línea, igual que USUARIO y TIENE */
+.swipe-info-row .swipe-looking{
+  display:flex!important;
+  flex-direction:row!important;
+  flex-wrap:nowrap!important;
+  align-items:baseline!important;
+  gap:4px!important;
+  min-width:0;
+}
+.swipe-info-row .swipe-looking>span{
+  display:inline!important;
+  flex:none!important;
+  margin:0!important;
+  line-height:1.25!important;
+}
+.swipe-info-row .swipe-looking>strong{
+  display:inline!important;
+  flex:1 1 auto!important;
+  min-width:0!important;
+  overflow-wrap:anywhere!important;
+  line-height:1.25!important;
+}
+.swipe-info-row .swipe-field{
+  align-items:baseline!important;
+}
