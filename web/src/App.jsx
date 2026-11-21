@@ -334,7 +334,7 @@ function App() {
       if (error?.code === '23505') setRequestFeedback('Ya existe una solicitud pendiente para ese número. No hace falta enviarla otra vez.');
       else if (error) setRequestFeedback('No pudimos enviar la solicitud. Revisá tus datos e intentá nuevamente.');
       else {
-        setRequestFeedback('Tu solicitud fue registrada. Cuando tu acceso esté habilitado, recibirás tu usuario y contraseña por WhatsApp.');
+        setRequestFeedback('Tu solicitud fue registrada. Cuando se habilite tu acceso, te enviaremos tu usuario y contraseña por WhatsApp.');
         setRequestName(''); setRequestPhone('');
       }
     } catch (err) {
@@ -507,14 +507,14 @@ function App() {
       <div className="brand-mark"><Handshake size={23}/></div>
       <span className="eyebrow">BIENVENIDO A TRUEKE PRG</span>
       <h1>Solicitá tu usuario</h1>
-      <p className="muted">Ingresá tus datos para recibir tu usuario y contraseña por WhatsApp cuando se habilite tu acceso.</p>
+      <p className="muted">Completá tus datos y, cuando se habilite tu acceso, te enviaremos tu usuario y contraseña por WhatsApp.</p>
       {requestFeedback.startsWith('¡') ? <div className="request-confirmation" role="status" aria-live="polite"><CheckCircle2 size={28}/><h2>¡Solicitud enviada!</h2><p>{requestFeedback}</p><button type="button" className="primary-btn full" onClick={()=>{setAccessRequestOpen(false);setRequestFeedback('')}}>Volver al inicio</button></div> : <form className="access-request-form" onSubmit={submitAccessRequest}>
         <label>Tu teléfono<input type="tel" inputMode="numeric" autoComplete="tel" value={requestPhone} onChange={e=>setRequestPhone(e.target.value.replace(/\D/g,'').slice(0,10))} placeholder="2964XXXXXX" maxLength={10} pattern="2964[0-9]{6}" required/><small>Usá 2964 seguido de otros 6 números.</small></label>
         <label>Tu nombre y apellido<input autoComplete="name" value={requestName} onChange={e=>setRequestName(e.target.value)} placeholder="Ej.: María Pérez" minLength={2} maxLength={60} required/></label>
         {requestFeedback&&<div role="alert" className="request-feedback error">{requestFeedback}</div>}
         <button className="primary-btn full" disabled={requestSending}>{requestSending?'Enviando…':'Enviar solicitud'} <ArrowRight size={17}/></button>
       </form>}
-      <div className="access-request-foot">TRUEKE PRG <span>·</span> Intercambiar nos acerca</div>
+      <div className="access-request-foot">TRUEKE PRG <span>·</span> Trueke para Río Grande</div>
     </section>
   </main>;
 
@@ -542,7 +542,7 @@ function App() {
         {installHelp && <div className="install-help" role="status"><b>Instalá Trueke en tu celular</b><span>Android: abrí el menú ⋮ de Chrome y elegí “Instalar aplicación” o “Agregar a pantalla principal”.</span><span>iPhone: tocá Compartir en Safari y elegí “Agregar a pantalla de inicio”.</span></div>}
         <div className="request-user"><span>¿Todavía no tenés usuario?</span><button type="button" onClick={()=>{setAccessRequestOpen(true);setRequestFeedback('')}} className="request-user-btn">Solicitar mi usuario</button></div>
       </div>
-      <div className="panel-bottom">TRUEKE PRG <span>·</span> Intercambiar nos acerca</div>
+      <div className="panel-bottom">TRUEKE PRG <span>·</span> Trueke para Río Grande</div>
     </section>
   </main>;
 
