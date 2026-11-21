@@ -315,3 +315,78 @@
  .swipe-actions{margin-top:4px}
  .swipe-actions button{width:56px;height:48px}
 }
+
+
+/* Trueke PRG — alineación y tipografía uniforme de la ficha de publicación */
+.swipe-details,
+.swipe-details *{
+  font-family:'DM Sans',sans-serif !important;
+  text-align:left;
+}
+.swipe-product-head,
+.swipe-info-grid{
+  display:grid;
+  grid-template-columns:minmax(0,1fr);
+  gap:9px;
+  align-items:start;
+}
+.swipe-field{
+  width:100%;
+  min-width:0;
+  margin:0;
+  gap:4px;
+  align-items:flex-start;
+}
+.swipe-field>span,
+.swipe-field>strong,
+.swipe-field h2,
+.swipe-description-field p,
+.swipe-looking .tag-list span{
+  font-size:12px !important;
+  line-height:1.45 !important;
+  letter-spacing:normal !important;
+}
+.swipe-field>span{
+  font-weight:700;
+  color:#80618f;
+}
+.swipe-field>strong,
+.swipe-field h2{
+  font-weight:700;
+  color:#392653;
+  margin:0;
+}
+.swipe-description-field p{
+  color:#776a85;
+  margin:0;
+}
+.swipe-looking .tag-list{
+  justify-content:flex-start;
+  gap:6px;
+}
+.swipe-looking .tag-list span{
+  padding:5px 10px;
+  font-weight:600;
+}
+.swipe-details{
+  padding-left:20px;
+  padding-right:20px;
+}
+@media(max-width:640px){
+  .swipe-details{
+    padding:8px 13px 9px;
+  }
+  .swipe-product-head,
+  .swipe-info-grid{
+    grid-template-columns:minmax(0,1fr);
+    gap:7px;
+  }
+  .swipe-field>span,
+  .swipe-field>strong,
+  .swipe-field h2,
+  .swipe-description-field p,
+  .swipe-looking .tag-list span{
+    font-size:11px !important;
+    line-height:1.35 !important;
+  }
+}
