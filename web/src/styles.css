@@ -643,7 +643,7 @@
 .request-access-form label{display:flex;flex-direction:column;gap:6px;color:#53665b;font-size:11px;font-weight:700}
 .request-access-form input{height:43px;padding:0 12px;border:1px solid #dfe5dc;border-radius:8px;background:#fff;color:#244438}
 .request-access-form .full{margin-top:0}
-.request-feedback{color:#587263;font-size:11px;line-height:1.5}
+.request-feedback{display:block;padding:12px 13px;border-radius:10px;font-size:13px;line-height:1.55;font-weight:650}.request-feedback.success{color:#245b3d;background:#eaf5eb;border:1px solid #cfe5d2}.request-feedback.error{color:#8d3d32;background:#fff0ed;border:1px solid #f0d1ca}.admin-notice{margin:18px 0 22px}
 .swipe-photo{position:relative}
 .swipe-report-btn{position:absolute;right:12px;top:12px;width:38px;height:38px;border:1px solid #ffffff99;border-radius:50%;background:#173f35dd;color:#fff;display:grid;place-items:center;z-index:3;box-shadow:0 3px 12px #0002}
 .swipe-report-btn:hover{background:#a94f3d}
