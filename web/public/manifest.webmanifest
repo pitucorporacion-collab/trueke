@@ -12,11 +12,11 @@
     "minimal-ui"
   ],
   "orientation": "portrait",
-  "background_color": "#dce8d9",
-  "theme_color": "#dce8d9",
+  "background_color": "#f58bb1",
+  "theme_color": "#9270df",
   "icons": [
     {
-      "src": "/icon.svg?v=4",
+      "src": "/icon-prg.svg?v=5",
       "sizes": "any",
       "type": "image/svg+xml",
       "purpose": "any maskable"
