@@ -812,3 +812,14 @@
   .access-request-form input{min-height:34px}
   .access-request-form .primary-btn{height:36px;min-height:36px}
 }
+
+
+/* Pantalla obligatoria de instalación PWA antes del acceso */
+.install-required-shell{background:linear-gradient(145deg,#f9edf5,#f1edff)}
+.install-required-panel{justify-content:center!important;padding-top:90px!important}
+.install-required-card{max-width:410px!important;margin:auto!important}
+.install-required-card h2{font-family:Manrope,sans-serif;font-size:clamp(27px,5vw,36px);letter-spacing:-.045em;margin:9px 0}
+.install-required-card>.muted{line-height:1.6;margin:0 0 22px}
+.install-main-btn{min-height:52px;gap:10px;font-size:14px}
+.install-required-note{font-size:11px;color:#8b7798;text-align:center;line-height:1.45;margin:12px 0 0}
+@media(max-width:640px){.install-required-panel{padding:78px 22px 18px!important}.install-required-card{margin:auto!important}.install-main-btn{min-height:49px}}
