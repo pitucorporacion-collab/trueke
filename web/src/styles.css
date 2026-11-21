@@ -679,3 +679,35 @@
   .authorized-phone-list{max-height:30vh;padding-right:4px}
   .authorized-phone-list .member-row{gap:8px}
 }
+
+
+/* Panel de administración: habilitar el desplazamiento vertical de toda la pantalla móvil */
+@media(max-width:640px){
+  .app-shell:has(.admin-dashboard){
+    height:100dvh;
+    min-height:0;
+    overflow:hidden;
+    display:flex;
+    flex-direction:column;
+  }
+  .app-shell:has(.admin-dashboard)>main{
+    flex:1 1 auto;
+    min-height:0;
+    height:auto;
+    overflow-y:auto!important;
+    overflow-x:hidden;
+    overscroll-behavior-y:contain;
+    -webkit-overflow-scrolling:touch;
+    touch-action:pan-y;
+  }
+  .admin-dashboard{
+    min-height:max-content;
+    height:auto;
+    overflow:visible;
+    padding-bottom:calc(32px + env(safe-area-inset-bottom));
+  }
+  .authorized-phone-list{
+    max-height:none;
+    overflow:visible;
+  }
+}
