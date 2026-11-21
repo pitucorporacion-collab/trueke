@@ -23,6 +23,14 @@ function App() {
   const [notifications,setNotifications] = useState([]);
   const [members,setMembers] = useState([]);
   const [authorizedPhones,setAuthorizedPhones] = useState([]);
+  const [accessRequests,setAccessRequests] = useState([]);
+  const [accessRequestOpen,setAccessRequestOpen] = useState(false);
+  const [requestName,setRequestName] = useState('');
+  const [requestPhone,setRequestPhone] = useState('');
+  const [requestSending,setRequestSending] = useState(false);
+  const [requestFeedback,setRequestFeedback] = useState('');
+  const [accessBusy,setAccessBusy] = useState(false);
+  const [accessWhatsApp,setAccessWhatsApp] = useState(null);
   const [newMemberPhone,setNewMemberPhone] = useState('');
   const [newMemberName,setNewMemberName] = useState('');
   const [newMemberPassword,setNewMemberPassword] = useState('');
@@ -149,14 +157,16 @@ function App() {
     setContacts(contactRows || []);
     setProposals(proposalRows || []);
     if (me?.role === 'admin') {
-      const [{data:reportRows},{data:notificationRows},{data:memberRows}] = await Promise.all([
-        supabase.from('reports').select('*').order('created_at',{ascending:false}),
+      const [{data:reportRows},{data:notificationRows},{data:memberRows},{data:requestRows}] = await Promise.all([
+        supabase.from('reports').select('*, reporter:profiles!reports_reporter_id_fkey(display_name,phone), listing:listings!reports_listing_id_fkey(title)').order('created_at',{ascending:false}),
         supabase.from('admin_notifications').select('*').order('created_at',{ascending:false}).limit(30),
-        supabase.rpc('admin_get_members')
+        supabase.rpc('admin_get_members'),
+        supabase.from('access_requests').select('*').order('created_at',{ascending:false})
       ]);
       setReports(reportRows || []);
       setNotifications(notificationRows || []);
       setMembers(memberRows || []);
+      setAccessRequests(requestRows || []);
       const {data:accessData,error:accessError} = await supabase.functions.invoke('admin-user-management',{body:{action:'list'}});
       if (accessError) setNotice('No pudimos cargar los teléfonos autorizados: '+accessError.message);
       else setAuthorizedPhones(accessData?.phones || []);
@@ -288,10 +298,67 @@ function App() {
     if (!reportTarget) return;
     const {error} = await supabase.from('reports').insert({
       reporter_id:session.user.id,listing_id:reportTarget.listingId || null,
-      reported_user:reportTarget.userId || null,reason:reportReason,details:reportDetails.trim()
+      reported_user:reportTarget.userId || null,listing_title:reportTarget.title || '',reason:reportReason,details:reportDetails.trim()
     });
-    if (error) setNotice(error.message);
+    if (error?.code === '23505') setNotice('Ya denunciaste esta publicación. Solo se permite una denuncia por usuario y publicación.');
+    else if (error) setNotice(error.message);
     else { setNotice('Denuncia enviada. Gracias por ayudar a cuidar la comunidad.'); setReportTarget(null); setReportDetails(''); await loadData(); }
+  }
+
+  async function submitAccessRequest(e) {
+    e.preventDefault(); setRequestFeedback('');
+    const cleanPhone = requestPhone.replace(/\\D/g,'');
+    if (!/^2964\\d{6}$/.test(cleanPhone)) { setRequestFeedback('Ingresá un teléfono válido: 2964 y otros 6 números.'); return; }
+    if (requestName.trim().length < 2) { setRequestFeedback('Ingresá tu nombre.'); return; }
+    setRequestSending(true);
+    const {error} = await supabase.from('access_requests').insert({display_name:requestName.trim(),phone:cleanPhone});
+    if (error?.code === '23505') setRequestFeedback('Ya existe una solicitud pendiente para ese número.');
+    else if (error) setRequestFeedback('No pudimos enviar la solicitud. Intentá nuevamente.');
+    else { setRequestFeedback('¡Solicitud enviada! El administrador la revisará y te contactará por WhatsApp.'); setRequestName(''); setRequestPhone(''); }
+    setRequestSending(false);
+  }
+
+  function makeTemporaryPassword() {
+    const bytes = crypto.getRandomValues(new Uint8Array(12));
+    return 'Tk!' + Array.from(bytes,b=>b.toString(16).padStart(2,'0')).join('') + 'A9';
+  }
+
+  async function approveAccessRequest(request) {
+    if (accessBusy) return;
+    setAccessBusy(true); setNotice('');
+    const tempPassword = makeTemporaryPassword();
+    try {
+      const {error:allowError} = await supabase.functions.invoke('admin-user-management',{body:{action:'authorize',phone:request.phone}});
+      if (allowError) throw allowError;
+      const {data,error} = await supabase.functions.invoke('admin-user-management',{body:{
+        action:'create_user',phone:request.phone,display_name:request.display_name,password:tempPassword
+      }});
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      const {error:updateError} = await supabase.from('access_requests').update({status:'approved',reviewed_at:new Date().toISOString(),reviewed_by:session.user.id}).eq('id',request.id).eq('status','pending');
+      if (updateError) throw updateError;
+      const message = '¡Hola '+request.display_name+'! Tu solicitud para ingresar a Trueke PRG fue aprobada.\n\nIngresá desde: https://trueke-prg.vercel.app\nUsuario: '+request.phone+'\nContraseña provisoria: '+tempPassword+'\n\nPodés cambiarla cuando quieras desde Mi cuenta. ¡Bienvenido/a!';
+      setAccessWhatsApp({phone:request.phone,password:tempPassword,url:'https://wa.me/549'+request.phone+'?text='+encodeURIComponent(message)});
+      setNotice('Solicitud aprobada. Abrí WhatsApp para enviarle el acceso.');
+      await loadData();
+    } catch(err) { setNotice(err.message || 'No se pudo autorizar la solicitud.'); }
+    finally { setAccessBusy(false); }
+  }
+
+  async function rejectAccessRequest(request) {
+    if (!window.confirm('¿Rechazar la solicitud de '+request.display_name+'?')) return;
+    const {error} = await supabase.from('access_requests').update({status:'rejected',reviewed_at:new Date().toISOString(),reviewed_by:session.user.id}).eq('id',request.id).eq('status','pending');
+    if (error) setNotice(error.message); else { setNotice('Solicitud rechazada.'); await loadData(); }
+  }
+
+  async function deleteReportedListing(report) {
+    if (!report.listing_id) { setNotice('La publicación ya no está disponible.'); return; }
+    if (!window.confirm('¿Eliminar la publicación denunciada? Esta acción no se puede deshacer.')) return;
+    const {data:imagesForRemoval} = await supabase.from('listing_images').select('storage_path').eq('listing_id',report.listing_id);
+    const paths = (imagesForRemoval || []).map(x=>x.storage_path).filter(Boolean);
+    if (paths.length) await supabase.storage.from('listing-photos').remove(paths);
+    const {error} = await supabase.from('listings').delete().eq('id',report.listing_id);
+    if (error) setNotice(error.message); else { await supabase.from('reports').update({status:'closed'}).eq('id',report.id); setNotice('Publicación eliminada.'); await loadData(); }
   }
 
 
@@ -400,7 +467,8 @@ function App() {
         <div className="privacy-note"><ShieldCheck size={16}/> Acceso privado para miembros autorizados.</div>
         {!appInstalled && <button type="button" className="install-app-btn" onClick={installApp}><Smartphone size={18}/> App móvil</button>}
         {installHelp && <div className="install-help" role="status"><b>Instalá Trueke en tu celular</b><span>Android: abrí el menú ⋮ de Chrome y elegí “Instalar aplicación” o “Agregar a pantalla principal”.</span><span>iPhone: tocá Compartir en Safari y elegí “Agregar a pantalla de inicio”.</span></div>}
-        <div className="request-user"><span>¿Todavía no tenés usuario?</span><button type="button" onClick={()=>setRequestUserHelp(value=>!value)} className="request-user-btn">Pedí tu usuario aquí</button>{requestUserHelp && <small>El acceso es por invitación. Solicitá tu usuario al administrador de Trueke PRG.</small>}</div>
+        <div className="request-user"><span>¿Todavía no tenés usuario?</span><button type="button" onClick={()=>{setAccessRequestOpen(value=>!value);setRequestFeedback('')}} className="request-user-btn">Solicitar mi usuario</button></div>
+        {accessRequestOpen&&<form className="request-access-form" onSubmit={submitAccessRequest}><label>Nombre<input value={requestName} onChange={e=>setRequestName(e.target.value)} placeholder="Tu nombre" minLength={2} maxLength={60} required/></label><label>Teléfono<input type="tel" inputMode="numeric" value={requestPhone} onChange={e=>setRequestPhone(e.target.value.replace(/\\D/g,'').slice(0,10))} placeholder="2964XXXXXX" maxLength={10} pattern="2964[0-9]{6}" required/></label><button className="primary-btn full" disabled={requestSending}>{requestSending?'Enviando…':'Enviar solicitud'}</button>{requestFeedback&&<small className="request-feedback">{requestFeedback}</small>}</form>}
       </div>
       <div className="panel-bottom">TRUEKE PRG <span>·</span> Intercambiar nos acerca</div>
     </section>
@@ -455,6 +523,7 @@ function App() {
           <article className="swipe-card" onTouchStart={e=>setSwipeStart(e.touches[0].clientX)} onTouchEnd={finishSwipe}>
             <div className="swipe-photo">{photos[currentListing.id]?<img src={photos[currentListing.id]} alt={currentListing.title}/>:<div className="photo-placeholder"><Tag size={35}/><span>TRUEQUE</span></div>}
               <span className="swipe-category">{currentListing.category || 'Juguetes y varios'}</span>
+              <button type="button" className="swipe-report-btn" aria-label="Denunciar publicación" title="Denunciar publicación" onClick={()=>{setReportTarget({listingId:currentListing.id,userId:currentListing.user_id,title:currentListing.title});setReportReason(reasons[0]);setReportDetails('')}}><Flag size={16}/></button>
             </div>
             <div className="swipe-details">
               <div className="swipe-info-row">
@@ -487,11 +556,14 @@ function App() {
             <button className="primary-btn" disabled={creatingMember}>{creatingMember?'Creando cuenta…':'Autorizar y crear cuenta'}</button>
           </form>
         </div>
+        <div className="admin-section-head"><h2><Users size={19}/> Solicitudes de acceso</h2><span className="nav-count">{accessRequests.filter(r=>r.status==='pending').length} pendientes</span></div>
+        {accessWhatsApp&&<div className="access-approved-box"><b>Acceso preparado para {accessWhatsApp.phone}</b><span>Contraseña provisoria: <code>{accessWhatsApp.password}</code></span><a className="whatsapp-btn" href={accessWhatsApp.url} target="_blank" rel="noreferrer"><MessageCircle size={17}/> Abrir WhatsApp y enviar acceso</a><small>El mensaje no se envía solo: se abre WhatsApp para que vos lo revises y lo envíes.</small></div>}
+        {accessRequests.filter(r=>r.status==='pending').length===0?<p className="muted">No hay solicitudes pendientes.</p>:accessRequests.filter(r=>r.status==='pending').map(r=><article className="access-request-card" key={r.id}><div><b>{r.display_name}</b><span>{r.phone}</span><small>{new Date(r.created_at).toLocaleString('es-AR')}</small></div><div className="report-actions"><button disabled={accessBusy} onClick={()=>approveAccessRequest(r)}>{accessBusy?'Procesando…':'Autorizar y preparar WhatsApp'}</button><button onClick={()=>rejectAccessRequest(r)}>Rechazar</button></div></article>)}
         <div className="admin-section-head"><h2><ShieldCheck size={19}/> Teléfonos autorizados</h2><span className="muted">{authorizedPhones.length} números</span></div>
         <div className="member-list">{authorizedPhones.map(a=><article className="member-row" key={a.phone}><div className="member-info"><b>{a.phone}</b><span>{a.note||'Autorizado'}</span></div><span className={a.is_active?'member-state active':'member-state blocked'}>{a.is_active?'Autorizado':'Desactivado'}</span><button className="ban-btn" onClick={()=>removeAuthorizedPhone(a)}><X size={15}/> Eliminar</button></article>)}</div>
         <div className="admin-stats"><div><strong>{reports.filter(r=>r.status==='open').length}</strong><span>Denuncias pendientes</span></div><div><strong>{members.length}</strong><span>Miembros registrados</span></div><div><strong>{members.filter(m=>!m.is_active).length}</strong><span>Bloqueados</span></div></div>
         <div className="admin-section-head"><h2><Flag size={19}/> Denuncias</h2><button className="outline-btn" onClick={markNotificationsRead}>Marcar avisos leídos</button></div>
-        {reports.length===0?<p className="muted">Todavía no hay denuncias.</p>:reports.map(r=><article className="report-card" key={r.id}><div className="report-main"><span className={'status-pill '+r.status}>{r.status==='open'?'Pendiente':r.status==='reviewed'?'Revisada':'Cerrada'}</span><b>{r.reason}</b><p>{r.details||'Sin detalles adicionales.'}</p><small>{new Date(r.created_at).toLocaleString('es-AR')} · Publicación/usuario: {r.listing_id||r.reported_user||'—'}</small></div><div className="report-actions"><button onClick={()=>updateReport(r,'reviewed')}>Revisada</button><button onClick={()=>updateReport(r,'closed')}>Cerrar</button></div></article>)}
+        {reports.length===0?<p className="muted">Todavía no hay denuncias.</p>:reports.map(r=><article className="report-card" key={r.id}><div className="report-main"><span className={'status-pill '+r.status}>{r.status==='open'?'Pendiente':r.status==='reviewed'?'Revisada':'Cerrada'}</span><b>{r.reason}</b><p>{r.details||'Sin detalles adicionales.'}</p><small>Denunció: <strong>{r.reporter?.display_name||'Usuario'}</strong> · Teléfono: <strong>{r.reporter?.phone||'No disponible'}</strong></small><small>Publicación: {r.listing_title||r.listing?.title||'Ya no disponible'} · {new Date(r.created_at).toLocaleString('es-AR')}</small></div><div className="report-actions"><button onClick={()=>updateReport(r,'reviewed')}>Revisada</button>{r.listing_id&&<button onClick={()=>deleteReportedListing(r)}>Eliminar publicación</button>}{r.reported_user&&<button onClick={()=>{const member=members.find(m=>m.id===r.reported_user);if(member)setMemberActive(member,false);else setNotice('No se encontró el usuario denunciado.')}}>Bloquear usuario</button>}<button onClick={()=>updateReport(r,'closed')}>Cerrar</button></div></article>)}
         <div className="admin-section-head"><h2><Users size={19}/> Miembros</h2><button className="outline-btn" onClick={()=>{setPasswordTarget(null);setTemporaryPassword('');setNewOwnPassword('');setPasswordModal(true)}}>Cambiar mi contraseña</button></div>
         <div className="member-list">{members.map(m=><article className="member-row" key={m.id}><div className="member-avatar">{(m.display_name||'U').slice(0,1).toUpperCase()}</div><div className="member-info"><b>{m.display_name||'Sin nombre'}</b><span>{m.phone}</span></div><span className={m.is_active?'member-state active':'member-state blocked'}>{m.is_active?'Activo':'Bloqueado'}</span><button className="reset-password-btn" onClick={()=>resetMemberPassword(m)}><ShieldCheck size={14}/> Contraseña</button>{m.role!=='admin'&&<button className={m.is_active?'ban-btn':'unban-btn'} onClick={()=>setMemberActive(m,!m.is_active)}>{m.is_active?<><Ban size={15}/> Bloquear</>:<><CheckCircle2 size={15}/> Habilitar</>}</button>}</article>)}</div>
         <div className="admin-section-head"><h2><Bell size={19}/> Avisos recientes</h2></div>
@@ -501,7 +573,7 @@ function App() {
     <footer className="footer"><a className="brand" href="#"><div className="brand-mark"><Handshake size={18}/></div><span>Trueke <b>Para Rio Grande</b></span></a><span>Una comunidad. Muchas posibilidades.</span><span>© 2026 Trueke PRG</span></footer>
 
     {passwordModal&&<div className="modal-backdrop" onMouseDown={e=>{if(e.target===e.currentTarget){setPasswordModal(false);setPasswordTarget(null);setTemporaryPassword('');setNewOwnPassword('')}}}><div className="create-modal password-modal"><div className="modal-head"><div><span className="eyebrow">SEGURIDAD DE LA CUENTA</span><h2>{passwordTarget?'Contraseña temporal':'Cambiar mi contraseña'}</h2><p>{passwordTarget?'Usuario: '+(passwordTarget.phone || passwordTarget.display_name):'Elegí una contraseña nueva para tu cuenta.'}</p></div><button className="icon-btn" onClick={()=>{setPasswordModal(false);setPasswordTarget(null);setTemporaryPassword('');setNewOwnPassword('')}}><X/></button></div>{passwordTarget?<div className="password-result">{passwordBusy?<p>Generando contraseña segura…</p>:temporaryPassword?<><p>Esta contraseña reemplazó la anterior. Copiala y entregásela al usuario por un canal privado. No volverá a mostrarse.</p><code>{temporaryPassword}</code><button className="primary-btn" onClick={()=>navigator.clipboard.writeText(temporaryPassword)}><Check size={16}/> Copiar contraseña</button></>:<p>Preparando…</p>}</div>:<form className="create-form" onSubmit={changeOwnPassword}><label>Nueva contraseña<input type="password" value={newOwnPassword} onChange={e=>setNewOwnPassword(e.target.value)} minLength={8} autoComplete="new-password" placeholder="Mínimo 8 caracteres" required/></label><button className="primary-btn" disabled={passwordBusy || newOwnPassword.length<8}>{passwordBusy?'Guardando…':'Guardar nueva contraseña'} <ArrowRight size={16}/></button></form>}</div></div>}
-    {selectedListing&&<div className="modal-backdrop" onMouseDown={e=>{if(e.target===e.currentTarget)setSelectedListing(null)}}><div className="create-modal detail-modal"><div className="modal-head"><div><span className="eyebrow">DETALLE DEL INTERCAMBIO</span><h2>{selectedListing.title}</h2><p><MapPin size={13} style={{display:'inline',verticalAlign:'middle'}}/> {selectedListing.location||'Ubicación a coordinar'}</p></div><button className="icon-btn" onClick={()=>setSelectedListing(null)}><X/></button></div>{photos[selectedListing.id]&&<img className="detail-image" src={photos[selectedListing.id]} alt={selectedListing.title}/>}<div className="detail-copy"><span className="eyebrow">QUÉ OFRECE</span><p>{selectedListing.description||'El miembro no agregó detalles adicionales.'}</p><div className="swap-for"><span>BUSCA A CAMBIO</span><b>{selectedListing.looking_for}</b></div><div className="detail-owner"><div className="mini-avatar">{(selectedListing.profiles?.display_name||'U').slice(0,1).toUpperCase()}</div><span>Publicado por <b>{selectedListing.profiles?.display_name||'Miembro'}</b></span></div><div className="detail-buttons"><button className="interest-btn" onClick={()=>{addInterest(selectedListing);setSelectedListing(null)}}><Heart size={16}/> Me interesa</button>{selectedListing.user_id!==session.user.id&&<button className="primary-btn" onClick={()=>setProposalOpen(true)}><Send size={16}/> Proponer intercambio</button>}<button className="report-link" onClick={()=>{setReportTarget({listingId:selectedListing.id,userId:selectedListing.user_id});setSelectedListing(null)}}><Flag size={15}/> Reportar</button></div></div></div></div>}
+    {selectedListing&&<div className="modal-backdrop" onMouseDown={e=>{if(e.target===e.currentTarget)setSelectedListing(null)}}><div className="create-modal detail-modal"><div className="modal-head"><div><span className="eyebrow">DETALLE DEL INTERCAMBIO</span><h2>{selectedListing.title}</h2><p><MapPin size={13} style={{display:'inline',verticalAlign:'middle'}}/> {selectedListing.location||'Ubicación a coordinar'}</p></div><button className="icon-btn" onClick={()=>setSelectedListing(null)}><X/></button></div>{photos[selectedListing.id]&&<img className="detail-image" src={photos[selectedListing.id]} alt={selectedListing.title}/>}<div className="detail-copy"><span className="eyebrow">QUÉ OFRECE</span><p>{selectedListing.description||'El miembro no agregó detalles adicionales.'}</p><div className="swap-for"><span>BUSCA A CAMBIO</span><b>{selectedListing.looking_for}</b></div><div className="detail-owner"><div className="mini-avatar">{(selectedListing.profiles?.display_name||'U').slice(0,1).toUpperCase()}</div><span>Publicado por <b>{selectedListing.profiles?.display_name||'Miembro'}</b></span></div><div className="detail-buttons"><button className="interest-btn" onClick={()=>{addInterest(selectedListing);setSelectedListing(null)}}><Heart size={16}/> Me interesa</button>{selectedListing.user_id!==session.user.id&&<button className="primary-btn" onClick={()=>setProposalOpen(true)}><Send size={16}/> Proponer intercambio</button>}<button className="report-link" onClick={()=>{setReportTarget({listingId:selectedListing.id,userId:selectedListing.user_id,title:selectedListing.title});setSelectedListing(null)}}><Flag size={15}/> Reportar</button></div></div></div></div>}
     {proposalOpen&&selectedListing&&<div className="modal-backdrop"><div className="create-modal"><div className="modal-head"><div><span className="eyebrow">PROPUESTA DIRECTA</span><h2>Proponer un intercambio</h2><p>{selectedListing.title}</p></div><button className="icon-btn" onClick={()=>setProposalOpen(false)}><X/></button></div><form className="create-form" onSubmit={sendProposal}><label>Tu propuesta<textarea value={proposalText} onChange={e=>setProposalText(e.target.value)} rows={4} maxLength={1500} placeholder="Contale qué podés ofrecer a cambio…" required/></label><button className="primary-btn" disabled={!proposalText.trim()}>Enviar propuesta <ArrowRight size={16}/></button></form></div></div>}
     {reportTarget&&<div className="modal-backdrop"><div className="create-modal"><div className="modal-head"><div><span className="eyebrow">CUIDEMOS LA COMUNIDAD</span><h2>Reportar contenido</h2><p>La denuncia llegará al administrador.</p></div><button className="icon-btn" onClick={()=>setReportTarget(null)}><X/></button></div><form className="create-form" onSubmit={submitReport}><label>Motivo<select value={reportReason} onChange={e=>setReportReason(e.target.value)}>{reasons.map(r=><option key={r}>{r}</option>)}</select></label><label>Detalles (opcional)<textarea value={reportDetails} onChange={e=>setReportDetails(e.target.value)} rows={3} maxLength={1000} placeholder="Contanos qué pasó…"/></label><button className="primary-btn">Enviar denuncia <Flag size={16}/></button></form></div></div>}
     {showCreate&&<div className="modal-backdrop" onMouseDown={e=>{if(e.target===e.currentTarget)setShowCreate(false)}}><div className="create-modal"><div className="modal-head"><div><span className="eyebrow">HACÉ CIRCULAR LO QUE TENÉS</span><h2>Publicá tu trueque</h2><p>Podés tener hasta 4 publicaciones activas.</p></div><button className="icon-btn" onClick={()=>setShowCreate(false)}><X/></button></div><form onSubmit={publishListing} className="create-form">
