@@ -208,7 +208,7 @@ function App() {
     setSwipeStart(null);
   }
 
-  function selectImages(files) { setImages(Array.from(files || []).slice(0,4)); }
+  function selectImages(files) { setImages(Array.from(files || []).slice(0,1)); }
 
   async function compressImage(file) {
     const bitmap = await createImageBitmap(file);
@@ -222,7 +222,10 @@ function App() {
   async function publishListing(e) {
     e.preventDefault();
     if (!form.title.trim() || !form.looking_for.trim()) return;
-    if (!images.length) { setNotice('Para publicar, tenés que agregar al menos una foto.'); return; }
+    if (form.title.trim().length > 30 || form.looking_for.trim().length > 30 || form.description.trim().length > 60) {
+      setNotice('Revisá los límites: Tiene y Busca hasta 30 caracteres; descripción hasta 60.'); return;
+    }
+    if (images.length !== 1) { setNotice('Cada publicación requiere exactamente una foto.'); return; }
     setSaving(true); setNotice('');
     try {
       const {data:listing,error} = await supabase.from('listings').insert({
@@ -497,12 +500,12 @@ function App() {
     {proposalOpen&&selectedListing&&<div className="modal-backdrop"><div className="create-modal"><div className="modal-head"><div><span className="eyebrow">PROPUESTA DIRECTA</span><h2>Proponer un intercambio</h2><p>{selectedListing.title}</p></div><button className="icon-btn" onClick={()=>setProposalOpen(false)}><X/></button></div><form className="create-form" onSubmit={sendProposal}><label>Tu propuesta<textarea value={proposalText} onChange={e=>setProposalText(e.target.value)} rows={4} maxLength={1500} placeholder="Contale qué podés ofrecer a cambio…" required/></label><button className="primary-btn" disabled={!proposalText.trim()}>Enviar propuesta <ArrowRight size={16}/></button></form></div></div>}
     {reportTarget&&<div className="modal-backdrop"><div className="create-modal"><div className="modal-head"><div><span className="eyebrow">CUIDEMOS LA COMUNIDAD</span><h2>Reportar contenido</h2><p>La denuncia llegará al administrador.</p></div><button className="icon-btn" onClick={()=>setReportTarget(null)}><X/></button></div><form className="create-form" onSubmit={submitReport}><label>Motivo<select value={reportReason} onChange={e=>setReportReason(e.target.value)}>{reasons.map(r=><option key={r}>{r}</option>)}</select></label><label>Detalles (opcional)<textarea value={reportDetails} onChange={e=>setReportDetails(e.target.value)} rows={3} maxLength={1000} placeholder="Contanos qué pasó…"/></label><button className="primary-btn">Enviar denuncia <Flag size={16}/></button></form></div></div>}
     {showCreate&&<div className="modal-backdrop" onMouseDown={e=>{if(e.target===e.currentTarget)setShowCreate(false)}}><div className="create-modal"><div className="modal-head"><div><span className="eyebrow">HACÉ CIRCULAR LO QUE TENÉS</span><h2>Publicá tu trueque</h2><p>Una sola publicación para objetos, servicios o habilidades.</p></div><button className="icon-btn" onClick={()=>setShowCreate(false)}><X/></button></div><form onSubmit={publishListing} className="create-form">
-      <label>¿Qué ofrecés?<input value={form.title} onChange={e=>setForm({...form,title:e.target.value})} placeholder="Ej. Bicicleta rodado 29" maxLength={100} required/></label>
-      <label>Contá un poco más<textarea value={form.description} onChange={e=>setForm({...form,description:e.target.value})} placeholder="Estado, medidas, detalles o cómo es el servicio…" rows={3} maxLength={1000}/></label>
-      <label>¿Qué te gustaría recibir a cambio?<input value={form.looking_for} onChange={e=>setForm({...form,looking_for:e.target.value})} placeholder="Ej. Una mesa, clases de inglés, ayuda…" maxLength={300} required/></label>
+      <label>¿Qué ofrecés?<input value={form.title} onChange={e=>setForm({...form,title:e.target.value})} placeholder="Ej. Bicicleta rodado 29" maxLength={30} required/></label>
+      <label>Contá un poco más<textarea value={form.description} onChange={e=>setForm({...form,description:e.target.value})} placeholder="Estado, medidas o detalles…" rows={2} maxLength={60}/></label>
+      <label>¿Qué te gustaría recibir a cambio?<input value={form.looking_for} onChange={e=>setForm({...form,looking_for:e.target.value})} placeholder="Ej. Una mesa, herramientas…" maxLength={30} required/></label>
       <label>¿A qué categoría pertenece?<select value={formCategory} onChange={e=>setFormCategory(e.target.value)} required><option value="">Elegí una categoría</option>{categories.map(category=><option key={category} value={category}>{category}</option>)}</select></label>
       <p className="location-fixed"><MapPin size={15}/> Publicaciones de Río Grande</p>
-      <div className="upload-area"><label className="upload-label"><ImagePlus size={20}/><span><b>Sumá al menos una foto *</b><small>Obligatoria · hasta 4 imágenes · se optimizan automáticamente</small></span><input type="file" accept="image/*" multiple onChange={e=>selectImages(e.target.files)} hidden/></label><div className="image-count">{images.length}/4</div></div>
+      <div className="upload-area"><label className="upload-label"><ImagePlus size={20}/><span><b>Sumá una foto *</b><small>Obligatoria · una imagen por publicación · se optimiza automáticamente</small></span><input type="file" accept="image/*" onChange={e=>selectImages(e.target.files)} hidden/></label><div className="image-count">{images.length}/1</div></div>
       {images.length>0&&<div className="selected-files">{images.map((f,i)=><span key={i}>{f.name}<button type="button" onClick={()=>setImages(images.filter((_,j)=>j!==i))}><X size={13}/></button></span>)}</div>}
       <div className="form-foot"><span><ShieldCheck size={15}/> Publicación automática para todos los miembros.</span><button className="primary-btn" disabled={saving}>{saving?'Publicando…':'Publicar trueque'} <ArrowRight size={16}/></button></div>
     </form></div></div>}
