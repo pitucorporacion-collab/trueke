@@ -561,3 +561,31 @@
   .swipe-actions button svg{width:21px;height:21px}
   .swipe-actions button small{font-size:11px!important;line-height:1.1}
 }
+
+
+/* Ajuste fino de BUSCA: texto simple, sin etiquetas tipo recuadro */
+.swipe-info-row .swipe-looking .tag-list{
+  display:inline;
+  min-width:0;
+}
+.swipe-info-row .swipe-looking .tag-list span{
+  display:inline;
+  padding:0!important;
+  margin:0;
+  border:0!important;
+  border-radius:0!important;
+  background:transparent!important;
+  box-shadow:none!important;
+  color:#392653!important;
+  font-size:12px!important;
+  font-weight:700!important;
+  line-height:1.45!important;
+}
+.swipe-description-field{margin-top:4px}
+@media(max-width:640px){
+  .swipe-info-row .swipe-looking .tag-list span{
+    font-size:10px!important;
+    line-height:1.25!important;
+  }
+  .swipe-description-field{margin-top:3px}
+}
