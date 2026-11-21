@@ -414,7 +414,7 @@ function App() {
     </header>
     <main>
       {page==='menu'&&<section className="menu-page">
-        <div className="menu-page-head"><span className="eyebrow">TU ESPACIO EN TRUEKE</span><h1>¿Qué hacemos hoy?</h1><p>Todo lo que necesitás, en un solo lugar.</p></div>
+        <div className="menu-page-head"><span className="eyebrow">TU ESPACIO EN TRUEKE PRG</span><h1>¿Qué hacemos hoy?</h1><p>Todo lo que necesitás, en un solo lugar.</p></div>
         <div className="menu-page-grid">
           <button className="menu-tile menu-tile-primary" onClick={()=>setPage('explore')}><span className="menu-tile-icon"><Heart size={25}/></span><b>Descubrir Truekes</b><small>Ver productos y encontrar algo que te interese</small><ArrowRight size={19}/></button>
           <button className="menu-tile" onClick={()=>setPage('my-listings')}><span className="menu-tile-icon"><Tag size={24}/></span><b>Mis publicaciones</b><small>Ver, administrar o borrar tus artículos</small><ArrowRight size={19}/></button>
