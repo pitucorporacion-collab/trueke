@@ -452,7 +452,7 @@ function App() {
               <div className="swipe-info-row">
                 <div className="swipe-field swipe-user-field"><span>USUARIO:</span><strong>{currentListing.profiles?.display_name || 'Miembro de Trueke'}</strong></div>
                 <div className="swipe-field swipe-product-field"><span>TIENE:</span><strong>{currentListing.title}</strong></div>
-                <div className="swipe-field swipe-looking"><span>BUSCA:</span><div className="tag-list">{currentListing.looking_for.split(/[,;]+/).map((tag,i)=><span key={i}>{tag.trim()}</span>)}</div></div>
+                <div className="swipe-field swipe-looking"><span>BUSCA:</span><strong>{currentListing.looking_for.split(/[,;]+/).map(tag=>tag.trim()).filter(Boolean).join(", ")}</strong></div>
               </div>
               <div className="swipe-field swipe-description-field"><span>DESCRIPCIÓN:</span><p className="swipe-description">{currentListing.description || 'Sin descripción'}</p></div>
               <div className="swipe-actions"><button className="swipe-no" disabled={swipeBusy} onClick={()=>swipeListing('left')} aria-label="No me interesa"><XCircle size={25}/><small>No me interesa</small></button><button className="swipe-yes" disabled={swipeBusy} onClick={()=>swipeListing('right')} aria-label="Me interesa"><Heart size={25}/><small>Me interesa</small></button></div>
