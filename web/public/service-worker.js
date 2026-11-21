@@ -1,5 +1,5 @@
-const CACHE = 'trueke-prg-shell-v3';
-const SHELL = ['/', '/manifest.webmanifest', '/icon.svg'];
+const CACHE = 'trueke-prg-shell-v4';
+const SHELL = ['/', '/manifest.webmanifest', '/icon.svg?v=4'];
 self.addEventListener('install', event => {
   event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(SHELL)));
   self.skipWaiting();
