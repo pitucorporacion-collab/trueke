@@ -589,3 +589,15 @@
   }
   .swipe-description-field{margin-top:3px}
 }
+
+
+/* Corrección final: USUARIO, TIENE y BUSCA comparten la misma línea superior */
+.swipe-info-row .swipe-field{
+  align-items:flex-start!important;
+}
+.swipe-info-row .swipe-field>span{
+  line-height:1.25!important;
+}
+.swipe-info-row .swipe-looking .tag-list{
+  vertical-align:top;
+}
