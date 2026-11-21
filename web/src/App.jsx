@@ -44,7 +44,7 @@ function App() {
   const [installPrompt,setInstallPrompt] = useState(null);
   const [installHelp,setInstallHelp] = useState(false);
   const [requestUserHelp,setRequestUserHelp] = useState(false);
-  const [appInstalled,setAppInstalled] = useState(false);
+  const [appInstalled,setAppInstalled] = useState(() => typeof window !== 'undefined' && (window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true));
   const [authError,setAuthError] = useState('');
   const [authBusy,setAuthBusy] = useState(false);
   const [phone,setPhone] = useState('');
@@ -515,6 +515,21 @@ function App() {
         <button className="primary-btn full" disabled={requestSending}>{requestSending?'Enviando…':'Enviar solicitud'} <ArrowRight size={17}/></button>
       </form>}
       <div className="access-request-foot">TRUEKE PRG <span>·</span> Trueke para Río Grande</div>
+    </section>
+  </main>;
+
+  if (!session && !appInstalled && !accessRequestOpen) return <main className="auth-shell install-required-shell">
+    <section className="auth-panel install-required-panel">
+      <div className="mobile-brand"><div className="brand-mark"><Handshake size={22}/></div><span>Trueke <b>Para Rio Grande</b></span></div>
+      <div className="auth-card install-required-card">
+        <span className="eyebrow">UNA MEJOR EXPERIENCIA</span>
+        <h2>Instalá Trueke PRG</h2>
+        <p className="muted">Para usar Trueke, primero instalá la aplicación en tu celular. Así se abre en pantalla completa y evitás usarla desde el navegador.</p>
+        <button type="button" className="primary-btn full install-main-btn" onClick={installApp}><Smartphone size={19}/> Instalar Trueke PRG <ArrowRight size={17}/></button>
+        {installHelp && <div className="install-help" role="status"><b>Cómo instalar Trueke</b><span>Android: en Chrome, tocá ⋮ y elegí “Instalar aplicación” o “Agregar a pantalla principal”.</span><span>iPhone: en Safari, tocá Compartir y elegí “Agregar a pantalla de inicio”.</span><span>Después abrí Trueke desde el ícono que se agregó al teléfono.</span></div>}
+        {!installPrompt && <p className="install-required-note">Si no aparece el aviso de instalación, usá las instrucciones de arriba.</p>}
+      </div>
+      <div className="panel-bottom">TRUEKE PRG <span>·</span> Trueke para Río Grande</div>
     </section>
   </main>;
 
