@@ -118,12 +118,29 @@ function App() {
 
   useEffect(() => {
     if (!session || profile?.role !== 'admin') return;
-    const refreshNotifications = async () => {
-      const {data} = await supabase.from('admin_notifications').select('*').order('created_at',{ascending:false}).limit(30);
-      setNotifications(data || []);
+    let knownRequestIds = null;
+    const refreshAdminData = async () => {
+      const [{data:notificationRows},{data:requestRows,error:requestError}] = await Promise.all([
+        supabase.from('admin_notifications').select('*').order('created_at',{ascending:false}).limit(30),
+        supabase.from('access_requests').select('*').order('created_at',{ascending:false})
+      ]);
+      if (notificationRows) setNotifications(notificationRows);
+      if (requestError) return;
+      const rows = requestRows || [];
+      const pending = rows.filter(row => row.status === 'pending');
+      if (knownRequestIds !== null) {
+        const newRequests = pending.filter(row => !knownRequestIds.has(row.id));
+        if (newRequests.length) {
+          setNotice(newRequests.length === 1
+            ? '¡Nueva solicitud de acceso! Revisá el apartado Solicitudes de acceso.'
+            : '¡Llegaron ' + newRequests.length + ' nuevas solicitudes de acceso! Revisá el apartado Solicitudes de acceso.');
+        }
+      }
+      knownRequestIds = new Set(rows.map(row => row.id));
+      setAccessRequests(rows);
     };
-    refreshNotifications();
-    const timer = window.setInterval(refreshNotifications, 20000);
+    refreshAdminData();
+    const timer = window.setInterval(refreshAdminData, 10000);
     return () => window.clearInterval(timer);
   }, [session, profile?.role]);
 
@@ -310,12 +327,21 @@ function App() {
     const cleanPhone = requestPhone.replace(/\D/g,'');
     if (!/^2964\d{6}$/.test(cleanPhone)) { setRequestFeedback('Ingresá un teléfono válido: 2964 y otros 6 números.'); return; }
     if (requestName.trim().length < 2) { setRequestFeedback('Ingresá tu nombre.'); return; }
+    if (!supabase) { setRequestFeedback('El servicio no está disponible en este momento. Intentá nuevamente.'); return; }
     setRequestSending(true);
-    const {error} = await supabase.from('access_requests').insert({display_name:requestName.trim(),phone:cleanPhone});
-    if (error?.code === '23505') setRequestFeedback('Ya existe una solicitud pendiente para ese número.');
-    else if (error) setRequestFeedback('No pudimos enviar la solicitud. Intentá nuevamente.');
-    else { setRequestFeedback('¡Solicitud enviada! El administrador la revisará y te contactará por WhatsApp.'); setRequestName(''); setRequestPhone(''); }
-    setRequestSending(false);
+    try {
+      const {error} = await supabase.from('access_requests').insert({display_name:requestName.trim(),phone:cleanPhone});
+      if (error?.code === '23505') setRequestFeedback('Ya existe una solicitud pendiente para ese número. No hace falta enviarla otra vez.');
+      else if (error) setRequestFeedback('No pudimos enviar la solicitud. Revisá tus datos e intentá nuevamente.');
+      else {
+        setRequestFeedback('¡Solicitud recibida correctamente! En breve revisaremos tus datos. Si se aprueba tu acceso, te enviaremos por WhatsApp tu usuario y contraseña para ingresar a Trueke PRG.');
+        setRequestName(''); setRequestPhone('');
+      }
+    } catch (err) {
+      setRequestFeedback('No pudimos conectar con el servicio. Intentá nuevamente en unos minutos.');
+    } finally {
+      setRequestSending(false);
+    }
   }
 
   function makeTemporaryPassword() {
@@ -468,7 +494,7 @@ function App() {
         {!appInstalled && <button type="button" className="install-app-btn" onClick={installApp}><Smartphone size={18}/> App móvil</button>}
         {installHelp && <div className="install-help" role="status"><b>Instalá Trueke en tu celular</b><span>Android: abrí el menú ⋮ de Chrome y elegí “Instalar aplicación” o “Agregar a pantalla principal”.</span><span>iPhone: tocá Compartir en Safari y elegí “Agregar a pantalla de inicio”.</span></div>}
         <div className="request-user"><span>¿Todavía no tenés usuario?</span><button type="button" onClick={()=>{setAccessRequestOpen(value=>!value);setRequestFeedback('')}} className="request-user-btn">Solicitar mi usuario</button></div>
-        {accessRequestOpen&&<form className="request-access-form" onSubmit={submitAccessRequest}><label>Nombre<input value={requestName} onChange={e=>setRequestName(e.target.value)} placeholder="Tu nombre" minLength={2} maxLength={60} required/></label><label>Teléfono<input type="tel" inputMode="numeric" value={requestPhone} onChange={e=>setRequestPhone(e.target.value.replace(/\D/g,'').slice(0,10))} placeholder="2964XXXXXX" maxLength={10} pattern="2964[0-9]{6}" required/></label><button className="primary-btn full" disabled={requestSending}>{requestSending?'Enviando…':'Enviar solicitud'}</button>{requestFeedback&&<small className="request-feedback">{requestFeedback}</small>}</form>}
+        {accessRequestOpen&&<form className="request-access-form" onSubmit={submitAccessRequest}><label>Nombre<input value={requestName} onChange={e=>setRequestName(e.target.value)} placeholder="Tu nombre" minLength={2} maxLength={60} required/></label><label>Teléfono<input type="tel" inputMode="numeric" value={requestPhone} onChange={e=>setRequestPhone(e.target.value.replace(/\D/g,'').slice(0,10))} placeholder="2964XXXXXX" maxLength={10} pattern="2964[0-9]{6}" required/></label><button className="primary-btn full" disabled={requestSending}>{requestSending?'Enviando…':'Enviar solicitud'}</button>{requestFeedback&&<div role="status" aria-live="polite" className={'request-feedback '+(requestFeedback.startsWith('¡')?'success':'error')}>{requestFeedback}</div>}</form>}
       </div>
       <div className="panel-bottom">TRUEKE PRG <span>·</span> Intercambiar nos acerca</div>
     </section>
@@ -546,6 +572,7 @@ function App() {
       {page==='admin'&&profile?.role==='admin'&&<section className="dashboard-section">
         <span className="eyebrow">PANEL PRIVADO</span><h1>Administración</h1>
         <p className="muted">Creá las cuentas y administrá quién puede ingresar a Trueke PRG.</p>
+        {notice&&<div className="notice admin-notice" role="status"><Check size={16}/>{notice}<button onClick={()=>setNotice('')}><X size={15}/></button></div>}
         <div className="create-modal" style={{margin:'24px 0',padding:24}}>
           <h2>Crear usuario</h2>
           <p className="muted">El teléfono queda autorizado y la cuenta se crea directamente. No hay registro libre.</p>
