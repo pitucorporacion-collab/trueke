@@ -307,8 +307,8 @@ function App() {
 
   async function submitAccessRequest(e) {
     e.preventDefault(); setRequestFeedback('');
-    const cleanPhone = requestPhone.replace(/\\D/g,'');
-    if (!/^2964\\d{6}$/.test(cleanPhone)) { setRequestFeedback('Ingresá un teléfono válido: 2964 y otros 6 números.'); return; }
+    const cleanPhone = requestPhone.replace(/\D/g,'');
+    if (!/^2964\d{6}$/.test(cleanPhone)) { setRequestFeedback('Ingresá un teléfono válido: 2964 y otros 6 números.'); return; }
     if (requestName.trim().length < 2) { setRequestFeedback('Ingresá tu nombre.'); return; }
     setRequestSending(true);
     const {error} = await supabase.from('access_requests').insert({display_name:requestName.trim(),phone:cleanPhone});
@@ -468,7 +468,7 @@ function App() {
         {!appInstalled && <button type="button" className="install-app-btn" onClick={installApp}><Smartphone size={18}/> App móvil</button>}
         {installHelp && <div className="install-help" role="status"><b>Instalá Trueke en tu celular</b><span>Android: abrí el menú ⋮ de Chrome y elegí “Instalar aplicación” o “Agregar a pantalla principal”.</span><span>iPhone: tocá Compartir en Safari y elegí “Agregar a pantalla de inicio”.</span></div>}
         <div className="request-user"><span>¿Todavía no tenés usuario?</span><button type="button" onClick={()=>{setAccessRequestOpen(value=>!value);setRequestFeedback('')}} className="request-user-btn">Solicitar mi usuario</button></div>
-        {accessRequestOpen&&<form className="request-access-form" onSubmit={submitAccessRequest}><label>Nombre<input value={requestName} onChange={e=>setRequestName(e.target.value)} placeholder="Tu nombre" minLength={2} maxLength={60} required/></label><label>Teléfono<input type="tel" inputMode="numeric" value={requestPhone} onChange={e=>setRequestPhone(e.target.value.replace(/\\D/g,'').slice(0,10))} placeholder="2964XXXXXX" maxLength={10} pattern="2964[0-9]{6}" required/></label><button className="primary-btn full" disabled={requestSending}>{requestSending?'Enviando…':'Enviar solicitud'}</button>{requestFeedback&&<small className="request-feedback">{requestFeedback}</small>}</form>}
+        {accessRequestOpen&&<form className="request-access-form" onSubmit={submitAccessRequest}><label>Nombre<input value={requestName} onChange={e=>setRequestName(e.target.value)} placeholder="Tu nombre" minLength={2} maxLength={60} required/></label><label>Teléfono<input type="tel" inputMode="numeric" value={requestPhone} onChange={e=>setRequestPhone(e.target.value.replace(/\D/g,'').slice(0,10))} placeholder="2964XXXXXX" maxLength={10} pattern="2964[0-9]{6}" required/></label><button className="primary-btn full" disabled={requestSending}>{requestSending?'Enviando…':'Enviar solicitud'}</button>{requestFeedback&&<small className="request-feedback">{requestFeedback}</small>}</form>}
       </div>
       <div className="panel-bottom">TRUEKE PRG <span>·</span> Intercambiar nos acerca</div>
     </section>
