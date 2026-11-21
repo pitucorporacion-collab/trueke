@@ -449,15 +449,13 @@ function App() {
               <span className="swipe-category">{currentListing.category || 'Juguetes y varios'}</span>
             </div>
             <div className="swipe-details">
-              <div className="swipe-product-head">
-                <div className="swipe-field swipe-user-field"><span>USUARIO</span><strong>{currentListing.profiles?.display_name || 'Miembro de Trueke'}</strong></div>
-                <div className="swipe-field swipe-product-field"><span>PRODUCTO A CAMBIAR</span><h2>{currentListing.title}</h2></div>
+              <div className="swipe-info-row">
+                <div className="swipe-field swipe-user-field"><span>USUARIO:</span><strong>{currentListing.profiles?.display_name || 'Miembro de Trueke'}</strong></div>
+                <div className="swipe-field swipe-product-field"><span>TIENE:</span><strong>{currentListing.title}</strong></div>
+                <div className="swipe-field swipe-looking"><span>BUSCA:</span><div className="tag-list">{currentListing.looking_for.split(/[,;]+/).map((tag,i)=><span key={i}>{tag.trim()}</span>)}</div></div>
               </div>
-              <div className="swipe-info-grid">
-                <div className="swipe-field swipe-description-field"><span>DESCRIPCIÓN</span><p className="swipe-description">{currentListing.description || 'Sin descripción'}</p></div>
-                <div className="swipe-field swipe-looking"><span>ESTÁ BUSCANDO</span><div className="tag-list">{currentListing.looking_for.split(/[,;]+/).map((tag,i)=><span key={i}>{tag.trim()}</span>)}</div></div>
-              </div>
-              <div className="swipe-actions"><button className="swipe-no" disabled={swipeBusy} onClick={()=>swipeListing('left')} aria-label="No me gusta"><XCircle size={29}/><small>No me gusta</small></button><button className="swipe-yes" disabled={swipeBusy} onClick={()=>swipeListing('right')} aria-label="Me gusta"><Heart size={28}/><small>Me gusta</small></button></div>
+              <div className="swipe-field swipe-description-field"><span>DESCRIPCIÓN:</span><p className="swipe-description">{currentListing.description || 'Sin descripción'}</p></div>
+              <div className="swipe-actions"><button className="swipe-no" disabled={swipeBusy} onClick={()=>swipeListing('left')} aria-label="No me interesa"><XCircle size={25}/><small>No me interesa</small></button><button className="swipe-yes" disabled={swipeBusy} onClick={()=>swipeListing('right')} aria-label="Me interesa"><Heart size={25}/><small>Me interesa</small></button></div>
             </div>
           </article>
         </div>:<div className="empty-state swipe-empty"><Handshake size={36}/><h3>Por ahora no hay más publicaciones</h3><p>Volvé más tarde o publicá algo para intercambiar.</p><button className="primary-btn" onClick={()=>setShowCreate(true)}><Plus size={17}/> Publicar algo</button></div>}
