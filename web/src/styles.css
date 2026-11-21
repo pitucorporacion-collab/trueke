@@ -656,3 +656,26 @@
 .access-approved-box small{font-size:10px;color:#758478}
 .access-approved-box .whatsapp-btn{margin-top:2px}
 @media(max-width:640px){.admin-dashboard{padding:8px 14px 24px}.admin-dashboard>h1{font-size:27px!important}.admin-dashboard .create-modal{padding:12px!important;margin:8px 0 12px!important}.admin-dashboard .create-form{gap:7px}.admin-dashboard .create-form input{padding:8px 10px}.admin-dashboard .access-request-card{align-items:flex-start;flex-direction:column}.admin-dashboard .access-request-card .report-actions{width:100%;flex-wrap:wrap}.admin-dashboard .access-request-card .report-actions button{flex:1}.access-request-card{align-items:flex-start;flex-direction:column}.access-request-card .report-actions{width:100%;flex-wrap:wrap}.access-request-card .report-actions button{flex:1}.report-actions{flex-wrap:wrap}}
+
+
+/* Lista de teléfonos autorizados: desplazamiento interno para mostrar todos */
+.authorized-phone-list{
+  max-height: min(34vh, 260px);
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 2px 5px 5px 0;
+  scrollbar-width: thin;
+  scrollbar-color: #a9b8a7 #edf1eb;
+}
+.authorized-phone-list .member-row{
+  min-height: 48px;
+  padding: 9px 11px;
+}
+.authorized-phone-list::-webkit-scrollbar{width:6px}
+.authorized-phone-list::-webkit-scrollbar-thumb{background:#a9b8a7;border-radius:8px}
+.authorized-phone-list::-webkit-scrollbar-track{background:#edf1eb;border-radius:8px}
+@media(max-width:640px){
+  .authorized-phone-list{max-height:30vh;padding-right:4px}
+  .authorized-phone-list .member-row{gap:8px}
+}
