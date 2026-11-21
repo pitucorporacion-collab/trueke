@@ -569,9 +569,8 @@ function App() {
         {incoming.length>0&&<><h2 className="subheading">Propuestas recibidas</h2>{incoming.map(p=><article className="proposal-card" key={p.id}><div><b>Propuesta directa</b><p>{p.message}</p><small>{new Date(p.created_at).toLocaleDateString('es-AR')}</small></div><button className="primary-btn" onClick={()=>acceptProposal(p.id)}><CheckCircle2 size={16}/> Aceptar y hacer match</button></article>)}</>}
         {outgoing.length>0&&<><h2 className="subheading">Propuestas enviadas</h2>{outgoing.map(p=><article className="proposal-card" key={p.id}><div><b>{p.status==='accepted'?'Aceptada':p.status==='rejected'?'Rechazada':'Pendiente'}</b><p>{p.message}</p></div></article>)}</>}
       </section>}
-      {page==='admin'&&profile?.role==='admin'&&<section className="dashboard-section">
+      {page==='admin'&&profile?.role==='admin'&&<section className="dashboard-section admin-dashboard">
         <span className="eyebrow">PANEL PRIVADO</span><h1>Administración</h1>
-        <p className="muted">Creá las cuentas y administrá quién puede ingresar a Trueke PRG.</p>
         {notice&&<div className="notice admin-notice" role="status"><Check size={16}/>{notice}<button onClick={()=>setNotice('')}><X size={15}/></button></div>}
         <div className="create-modal" style={{margin:'24px 0',padding:24}}>
           <h2>Crear usuario</h2>
