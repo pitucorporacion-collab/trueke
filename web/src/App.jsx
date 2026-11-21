@@ -344,9 +344,20 @@ function App() {
     }
   }
 
+  const PASSWORD_WORDS = ["luna","pato","gato","casa","mesa","sapo","lobo","rana","pino","rosa","flor","nube","sola","copa","taza","vaso","tela","lana","pelo","mano","dedo","boca","cara","ojos","puma","leon","mono","foca","mula","vaca","pera","uvaa","kiwi","mora","nuez","lima","miel","coco","mate","cafe","vino","agua","jugo","panx","ques","taco","sopa","pala","pico","remo","bote","vela","tren","auto","moto","ruta","lago","marx","olas","isla","cabo","roca","piso","reja","caja","bols","nota","hoja","lapi","tiza","mapa","foto","cine","arte","arpa","bajo","solo","alto","azul","rojo","ocre","oroa","frio","vivo","risa","amor","pazx","vida","alma","suen","idea","jefe","obra","dato","plan","meta","hora","ayer","hoyx","mesx","anio","mayo","ener","marz","cero","dosx","tres","seis","ocho","diez","once","doce","seda","lino","puro","rico","fino","buen","rapi","sano","leal","real","unir","usar","reir","darx","toma","mira","abre","sale","sube","baja","gira","pasa","para","faro","foco","luzx","humo","aire","lluv","rayo","bosq","rama","frut","raiz","nido","plum","cola","pata","piel","cuar","pied","hier","muro","teja","ladr","cama","sofa","cuna","cubo","tubo","tapa","tina","pile","jard","barr","puen","esqu","cent","surx","este","oest","fiel","just","onda","lira","coro","tema","vers","rima","poem","line","base","redx","nodo","webx","appx","chat","mail","bits","byte","chip","modo","menu","icon","tipo","clan","trib","amig","pare","hijo","tiox","tata","nene","nena","bebe","mama","papa","duen","guia","cura","juez","reyx","dama","donx","chef","poet","musx","guit","pila","bota","ropa","relo","anil","joya","gema","jade","opal","topo","polo","golf","futb","judo","surf","giro","turn","dado","naip","peon","reya"];
+  
   function makeTemporaryPassword() {
-    const bytes = crypto.getRandomValues(new Uint8Array(12));
-    return 'Tk!' + Array.from(bytes,b=>b.toString(16).padStart(2,'0')).join('') + 'A9';
+    const randomIndex = (max) => {
+      const range = 0x100000000;
+      const limit = range - (range % max);
+      const value = new Uint32Array(1);
+      do { crypto.getRandomValues(value); } while (value[0] >= limit);
+      return value[0] % max;
+    };
+    const first = PASSWORD_WORDS[randomIndex(PASSWORD_WORDS.length)];
+    const number = String(randomIndex(100)).padStart(2, '0');
+    const second = PASSWORD_WORDS[randomIndex(PASSWORD_WORDS.length)];
+    return first + number + second;
   }
 
   async function approveAccessRequest(request) {
