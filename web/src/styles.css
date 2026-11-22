@@ -868,3 +868,5 @@
 .name-review-actions{display:flex;gap:10px;align-items:center}
 .name-review-actions>*{flex:1;justify-content:center}
 @media(max-width:600px){.account-details-card{padding:17px;margin:19px 0 16px}.account-details-heading b{font-size:17px}.name-review-actions{flex-direction:column-reverse}.name-review-actions>*{width:100%}}
+
+.top-actions .icon-btn{position:relative}.top-actions .icon-btn .notification-dot{position:absolute;top:5px;right:5px;margin:0;width:8px;height:8px;box-shadow:0 0 0 2px #fbfaf6}
