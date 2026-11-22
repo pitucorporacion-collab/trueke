@@ -362,7 +362,7 @@ function App() {
     try {
       const {error} = await supabase.from('access_requests').insert({display_name:requestName.trim(),phone:cleanPhone});
       if (error?.code === '23505') setRequestFeedback('Ya existe una solicitud pendiente para ese número. No hace falta enviarla otra vez.');
-      else if (error) setRequestFeedback('No pudimos enviar la solicitud. Revisá tus datos e intentá nuevamente.');
+      else if (error) setRequestFeedback(error.message?.toLowerCase().includes('nombre') || error.message?.toLowerCase().includes('permitido') ? error.message : 'No pudimos enviar la solicitud. Revisá tus datos e intentá nuevamente.');
       else {
         setRequestFeedback('Tu solicitud fue registrada. Cuando se habilite tu acceso, te enviaremos tu usuario y contraseña por WhatsApp.');
         setRequestName(''); setRequestPhone('');
@@ -687,7 +687,7 @@ function App() {
       </section>}
       {page==='account'&&<section className="dashboard-section account-page">
         <span className="eyebrow">TU PERFIL</span><h1>Mi cuenta</h1><p className="muted">Tus datos de acceso y seguridad.</p>
-        <div className="account-summary"><div className="avatar account-avatar">{(profile?.display_name||'U').slice(0,1).toUpperCase()}</div><div><b>{profile?.display_name||'Mi cuenta'}</b><span>Teléfono: {profile?.phone || 'No disponible'}</span></div></div>
+        <div className="account-summary"><div className="avatar account-avatar">{(profile?.display_name||'U').slice(0,1).toUpperCase()}</div><div><b>{profile?.display_name||'Mi cuenta'}</b><span>Tu perfil en la comunidad</span></div></div>
         <form className="create-form account-name-form" onSubmit={saveDisplayName}>
           <label>Nombre visible<input value={displayNameDraft} onChange={e=>setDisplayNameDraft(e.target.value)} minLength={3} maxLength={25} placeholder="Cómo querés aparecer" required/></label>
           <small>Este nombre aparece en tus publicaciones y matches. Podés cambiarlo cuando quieras.</small>
