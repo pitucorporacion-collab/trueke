@@ -703,10 +703,10 @@ function App() {
         <button className="menu-back" onClick={()=>setPage('explore')}>Volver a descubrir productos</button>
       </section>}
       {page==='my-listings'&&<section className="dashboard-section">
-        <span className="eyebrow">LO QUE COMPARTÍS</span><h1>Mis publicaciones</h1><p className="muted">Tenés {listings.filter(item=>item.user_id===session.user.id).length} de 4 publicaciones. Podés agregar otra hasta llegar al máximo.</p>
-        {listings.filter(item=>item.user_id===session.user.id).length<4
-          ? <button className="primary-btn" onClick={()=>setShowCreate(true)}><Plus size={17}/> Publicar otra ({listings.filter(item=>item.user_id===session.user.id).length}/4)</button>
-          : <p className="muted">Llegaste al máximo de 4 publicaciones. Si querés agregar otra, primero borrá una.</p>}
+        <span className="eyebrow">LO QUE COMPARTÍS</span><h1>Mis publicaciones</h1><p className="muted">Tenés {listings.filter(item=>item.user_id===session.user.id).length} de 10 publicaciones. Podés agregar otra hasta llegar al máximo.</p>
+        {listings.filter(item=>item.user_id===session.user.id).length<10
+          ? <button className="primary-btn" onClick={()=>setShowCreate(true)}><Plus size={17}/> Publicar otra ({listings.filter(item=>item.user_id===session.user.id).length}/10)</button>
+          : <p className="muted">Llegaste al máximo de 10 publicaciones. Si querés agregar otra, primero borrá una.</p>}
         <div className="my-listings-grid">{listings.filter(item=>item.user_id===session.user.id).map(item=><article className="my-listing-card" key={item.id}>{photos[item.id]&&<img src={photos[item.id]} alt={item.title}/>}<div><span className="eyebrow">{item.category||'Trueque'}</span><h3>{item.title}</h3><p>Busco: {item.looking_for}</p><button className="delete-listing-btn" onClick={()=>deleteListing(item)}><XCircle size={16}/> Borrar publicación</button></div></article>)}</div>
         {listings.filter(item=>item.user_id===session.user.id).length===0&&<div className="empty-state"><Tag size={34}/><h3>Todavía no publicaste nada</h3><p>Subí tu primer artículo para empezar a intercambiar.</p></div>}
         <button className="menu-back" onClick={()=>setPage('menu')}>Volver al menú</button>
