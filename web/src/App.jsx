@@ -51,6 +51,7 @@ function App() {
   const [unseenMatchIds,setUnseenMatchIds] = useState([]);
   const knownMatchIdsRef = useRef(null);
   const audioContextRef = useRef(null);
+  const pendingBellIdsRef = useRef([]);
   const [contacts,setContacts] = useState([]);
   const [proposals,setProposals] = useState([]);
   const [reports,setReports] = useState([]);
@@ -157,7 +158,8 @@ function App() {
       const AudioContextClass = window.AudioContext || window.webkitAudioContext;
       if (!AudioContextClass) return;
       if (!audioContextRef.current) audioContextRef.current = new AudioContextClass();
-      if (audioContextRef.current.state === 'suspended') audioContextRef.current.resume().catch(()=>{});
+      if (audioContextRef.current.state === 'suspended') audioContextRef.current.resume().then(flushPendingMatchBells).catch(()=>{});
+      else flushPendingMatchBells();
     };
     window.addEventListener('pointerdown',unlockAudio);
     window.addEventListener('keydown',unlockAudio);
@@ -226,7 +228,7 @@ function App() {
 
   function playMatchBell() {
     const context = audioContextRef.current;
-    if (!context || context.state !== 'running') return;
+    if (!context || context.state !== 'running') return false;
     const now = context.currentTime;
     const gain = context.createGain();
     gain.gain.setValueAtTime(0.0001,now);
@@ -241,6 +243,33 @@ function App() {
       oscillator.start(now+index*0.045);
       oscillator.stop(now+0.65);
     });
+    return true;
+  }
+
+  function queueMatchBells(ids) {
+    if (!ids.length || !session?.user?.id) return;
+    const key = 'trueke_notified_matches_'+session.user.id;
+    let notified = [];
+    try { notified = JSON.parse(localStorage.getItem(key) || '[]'); } catch {}
+    const fresh = ids.filter(id=>!notified.includes(id) && !pendingBellIdsRef.current.includes(id));
+    if (!fresh.length) return;
+    if (audioContextRef.current?.state === 'running') {
+      fresh.forEach(()=>playMatchBell());
+      localStorage.setItem(key,JSON.stringify([...new Set([...notified,...fresh])]));
+    } else {
+      pendingBellIdsRef.current = [...pendingBellIdsRef.current,...fresh];
+    }
+  }
+
+  function flushPendingMatchBells() {
+    if (!session?.user?.id || audioContextRef.current?.state !== 'running' || !pendingBellIdsRef.current.length) return;
+    const key = 'trueke_notified_matches_'+session.user.id;
+    let notified = [];
+    try { notified = JSON.parse(localStorage.getItem(key) || '[]'); } catch {}
+    const pending = pendingBellIdsRef.current.filter(id=>!notified.includes(id));
+    pending.forEach(()=>playMatchBell());
+    pendingBellIdsRef.current = [];
+    if (pending.length) localStorage.setItem(key,JSON.stringify([...new Set([...notified,...pending])]));
   }
 
   function applyMatchRows(rows) {
@@ -257,9 +286,13 @@ function App() {
           const oldIds = [...currentIds].filter(id=>!recentIds.includes(id));
           localStorage.setItem(storageKey,JSON.stringify(oldIds));
           setUnseenMatchIds(recentIds);
+          queueMatchBells(recentIds);
         } else {
           const seen = new Set(JSON.parse(stored));
-          setUnseenMatchIds((rows || []).filter(row=>!seen.has(row.id)).map(row=>row.id));
+          const unseenRows = (rows || []).filter(row=>!seen.has(row.id));
+          setUnseenMatchIds(unseenRows.map(row=>row.id));
+          const cutoff = Date.now()-24*60*60*1000;
+          queueMatchBells(unseenRows.filter(row=>new Date(row.created_at).getTime()>=cutoff).map(row=>row.id));
         }
       } catch { setUnseenMatchIds([]); }
       return;
@@ -268,7 +301,7 @@ function App() {
     currentIds.forEach(id=>knownMatchIdsRef.current.add(id));
     if (newRows.length) {
       setUnseenMatchIds(previous=>[...new Set([...previous,...newRows.map(row=>row.id)])]);
-      newRows.forEach(()=>playMatchBell());
+      queueMatchBells(newRows.map(row=>row.id));
     }
   }
 
@@ -282,6 +315,12 @@ function App() {
     } catch {
       localStorage.setItem(storageKey,JSON.stringify(matches.map(row=>row.id)));
     }
+    const notifiedKey = 'trueke_notified_matches_'+session.user.id;
+    try {
+      const notified = JSON.parse(localStorage.getItem(notifiedKey) || '[]');
+      localStorage.setItem(notifiedKey,JSON.stringify([...new Set([...notified,...matches.map(row=>row.id)])]));
+    } catch {}
+    pendingBellIdsRef.current = pendingBellIdsRef.current.filter(id=>!matches.some(row=>row.id===id));
     setUnseenMatchIds([]);
   }
 
