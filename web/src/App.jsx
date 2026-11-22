@@ -11,9 +11,36 @@ const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 const supabase = supabaseUrl && supabaseKey ? createClient(supabaseUrl, supabaseKey) : null;
 const reasons = ['Venta de dinero o precios', 'Contenido inapropiado', 'Posible estafa', 'Spam', 'Otro'];
 
+function normalizeModerationText(value) {
+  return String(value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[0-9@$!]/g, char => ({'0':'o','1':'i','2':'z','3':'e','4':'a','5':'s','6':'g','7':'t','8':'b','9':'g','@':'a','$':'s','!':'i'}[char]))
+    .replace(/[^a-z0-9\s]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function isBlockedDisplayName(value, terms) {
+  const normalized = normalizeModerationText(value);
+  const compact = normalized.replace(/\s/g, '');
+  return (terms || []).some(item => {
+    const term = normalizeModerationText(item.term || item);
+    if (!term) return false;
+    return (' ' + normalized + ' ').includes(' ' + term + ' ')
+      || (/^[a-z0-9](?: [a-z0-9]){2,}$/.test(normalized) && compact === term);
+  });
+}
+
 function App() {
   const [session,setSession] = useState(null);
   const [profile,setProfile] = useState(null);
+  const [displayNameDraft,setDisplayNameDraft] = useState('');
+  const [displayNameBusy,setDisplayNameBusy] = useState(false);
+  const [blockedNameTerms,setBlockedNameTerms] = useState([]);
+  const [newBlockedTerm,setNewBlockedTerm] = useState('');
+  const [blockedTermsBusy,setBlockedTermsBusy] = useState(false);
   const [listings,setListings] = useState([]);
   const [photos,setPhotos] = useState({});
   const [matches,setMatches] = useState([]);
@@ -147,10 +174,11 @@ function App() {
   async function loadData() {
     setLoading(true);
     const [{data:me},{data:rows,error}] = await Promise.all([
-      supabase.from('profiles').select('id,display_name,role,is_active,created_at').eq('id',session.user.id).single(),
+      supabase.from('profiles').select('id,display_name,phone,role,is_active,created_at').eq('id',session.user.id).single(),
       supabase.from('listings').select('*, profiles(display_name), listing_images(id,storage_path,sort_order)').or('status.eq.published,user_id.eq.'+session.user.id).order('created_at',{ascending:false})
     ]);
     setProfile(me || null);
+    setDisplayNameDraft(me?.display_name || '');
     if (error) setNotice('No pudimos cargar las publicaciones. Revisá tu conexión.');
     const items = rows || [];
     setListings(items);
@@ -174,13 +202,15 @@ function App() {
     setContacts(contactRows || []);
     setProposals(proposalRows || []);
     if (me?.role === 'admin') {
-      const [{data:reportRows},{data:notificationRows},{data:memberRows},{data:requestRows}] = await Promise.all([
+      const [{data:reportRows},{data:notificationRows},{data:memberRows},{data:requestRows},{data:blockedTermsRows}] = await Promise.all([
         supabase.from('reports').select('*, reporter:profiles!reports_reporter_id_fkey(display_name,phone), listing:listings!reports_listing_id_fkey(title)').order('created_at',{ascending:false}),
         supabase.from('admin_notifications').select('*').order('created_at',{ascending:false}).limit(30),
         supabase.rpc('admin_get_members'),
-        supabase.from('access_requests').select('*').order('created_at',{ascending:false})
+        supabase.from('access_requests').select('*').order('created_at',{ascending:false}),
+        supabase.rpc('admin_manage_display_name_terms',{p_action:'list',p_term:null})
       ]);
       setReports(reportRows || []);
+      setBlockedNameTerms(blockedTermsRows || []);
       setNotifications(notificationRows || []);
       setMembers(memberRows || []);
       setAccessRequests(requestRows || []);
@@ -326,7 +356,7 @@ function App() {
     e.preventDefault(); setRequestFeedback('');
     const cleanPhone = requestPhone.replace(/\D/g,'');
     if (!/^2964\d{6}$/.test(cleanPhone)) { setRequestFeedback('Ingresá un teléfono válido: 2964 y otros 6 números.'); return; }
-    if (requestName.trim().length < 2) { setRequestFeedback('Ingresá tu nombre.'); return; }
+    if (requestName.trim().length < 3 || requestName.trim().length > 25) { setRequestFeedback('El nombre debe tener entre 3 y 25 caracteres.'); return; }
     if (!supabase) { setRequestFeedback('El servicio no está disponible en este momento. Intentá nuevamente.'); return; }
     setRequestSending(true);
     try {
@@ -408,7 +438,7 @@ function App() {
     setNotice('');
     const cleanPhone = newMemberPhone.replace(/\D/g,'');
     if (!/^2964\d{6}$/.test(cleanPhone)) { setNotice('El teléfono debe tener 10 números: 2964 y otros 6 números.'); return; }
-    if (newMemberName.trim().length < 2) { setNotice('Ingresá el nombre del usuario.'); return; }
+    if (newMemberName.trim().length < 3 || newMemberName.trim().length > 25) { setNotice('El nombre debe tener entre 3 y 25 caracteres.'); return; }
     if (newMemberPassword.length < 8) { setNotice('La contraseña debe tener al menos 8 caracteres.'); return; }
     setCreatingMember(true);
     try {
@@ -473,6 +503,67 @@ function App() {
     setPasswordBusy(false);
   }
 
+  async function saveDisplayName(e) {
+    e.preventDefault();
+    const cleanName = displayNameDraft.trim().replace(/\s+/g, ' ');
+    if (cleanName.length < 3 || cleanName.length > 25) {
+      setNotice('El nombre visible debe tener entre 3 y 25 caracteres.');
+      return;
+    }
+    if (isBlockedDisplayName(cleanName, blockedNameTerms)) {
+      setNotice('Ese nombre contiene una palabra no permitida. Probá con otro nombre.');
+      return;
+    }
+    setDisplayNameBusy(true);
+    setNotice('');
+    const {data,error} = await supabase.from('profiles')
+      .update({display_name:cleanName})
+      .eq('id',session.user.id)
+      .select('id,display_name,phone,role,is_active,created_at')
+      .single();
+    setDisplayNameBusy(false);
+    if (error) {
+      setNotice(error.message?.includes('nombre') || error.message?.includes('permitido')
+        ? error.message
+        : 'No se pudo cambiar el nombre. Revisá que cumpla las reglas e intentá nuevamente.');
+      return;
+    }
+    setProfile(data);
+    setDisplayNameDraft(data.display_name);
+    setNotice('Nombre visible actualizado correctamente.');
+    await loadData();
+  }
+
+  async function addBlockedNameTerm(e) {
+    e.preventDefault();
+    const term = newBlockedTerm.trim();
+    if (term.length < 2 || term.length > 40) {
+      setNotice('La palabra o expresión debe tener entre 2 y 40 caracteres.');
+      return;
+    }
+    setBlockedTermsBusy(true);
+    const {data,error} = await supabase.rpc('admin_manage_display_name_terms',{p_action:'add',p_term:term});
+    setBlockedTermsBusy(false);
+    if (error) setNotice(error.message || 'No se pudo agregar la palabra.');
+    else {
+      setBlockedNameTerms(data || []);
+      setNewBlockedTerm('');
+      setNotice('Palabra agregada al filtro.');
+    }
+  }
+
+  async function removeBlockedNameTerm(term) {
+    if (!window.confirm('¿Quitar «' + term + '» de las palabras prohibidas?')) return;
+    setBlockedTermsBusy(true);
+    const {data,error} = await supabase.rpc('admin_manage_display_name_terms',{p_action:'remove',p_term:term});
+    setBlockedTermsBusy(false);
+    if (error) setNotice(error.message || 'No se pudo quitar la palabra.');
+    else {
+      setBlockedNameTerms(data || []);
+      setNotice('Palabra quitada del filtro.');
+    }
+  }
+
   async function changeOwnPassword(e) {
     e.preventDefault();
     if (newOwnPassword.length < 8) { setNotice('La contraseña debe tener al menos 8 caracteres.'); return; }
@@ -510,7 +601,7 @@ function App() {
       <p className="muted">Completá tus datos y, cuando se habilite tu acceso, te enviaremos tu usuario y contraseña por WhatsApp.</p>
       {requestFeedback.startsWith('¡') ? <div className="request-confirmation" role="status" aria-live="polite"><CheckCircle2 size={28}/><h2>¡Solicitud enviada!</h2><p>{requestFeedback}</p><button type="button" className="primary-btn full" onClick={()=>{setAccessRequestOpen(false);setRequestFeedback('')}}>Volver al inicio</button></div> : <form className="access-request-form" onSubmit={submitAccessRequest}>
         <label>Tu teléfono<input type="tel" inputMode="numeric" autoComplete="tel" value={requestPhone} onChange={e=>setRequestPhone(e.target.value.replace(/\D/g,'').slice(0,10))} placeholder="2964XXXXXX" maxLength={10} pattern="2964[0-9]{6}" required/><small>Usá 2964 seguido de otros 6 números.</small></label>
-        <label>Tu nombre y apellido<input autoComplete="name" value={requestName} onChange={e=>setRequestName(e.target.value)} placeholder="Ej.: María Pérez" minLength={2} maxLength={60} required/></label>
+        <label>Tu nombre y apellido<input autoComplete="name" value={requestName} onChange={e=>setRequestName(e.target.value)} placeholder="Ej.: María Pérez" minLength={3} maxLength={25} required/><small>Este será tu nombre visible en Trueke PRG.</small></label>
         {requestFeedback&&<div role="alert" className="request-feedback error">{requestFeedback}</div>}
         <button className="primary-btn full" disabled={requestSending}>{requestSending?'Enviando…':'Enviar solicitud'} <ArrowRight size={17}/></button>
       </form>}
@@ -596,7 +687,13 @@ function App() {
       </section>}
       {page==='account'&&<section className="dashboard-section account-page">
         <span className="eyebrow">TU PERFIL</span><h1>Mi cuenta</h1><p className="muted">Tus datos de acceso y seguridad.</p>
-        <div className="account-summary"><div className="avatar account-avatar">{(profile?.display_name||'U').slice(0,1).toUpperCase()}</div><div><b>{profile?.display_name||'Mi cuenta'}</b><span>{session.user.email}</span></div></div>
+        <div className="account-summary"><div className="avatar account-avatar">{(profile?.display_name||'U').slice(0,1).toUpperCase()}</div><div><b>{profile?.display_name||'Mi cuenta'}</b><span>Teléfono: {profile?.phone || 'No disponible'}</span></div></div>
+        <form className="create-form account-name-form" onSubmit={saveDisplayName}>
+          <label>Nombre visible<input value={displayNameDraft} onChange={e=>setDisplayNameDraft(e.target.value)} minLength={3} maxLength={25} placeholder="Cómo querés aparecer" required/></label>
+          <small>Este nombre aparece en tus publicaciones y matches. Podés cambiarlo cuando quieras.</small>
+          <button className="primary-btn" disabled={displayNameBusy || displayNameDraft.trim().length<3}>{displayNameBusy?'Guardando…':'Guardar nombre visible'} <ArrowRight size={16}/></button>
+        </form>
+        <div className="account-phone-lock"><span>TELÉFONO DE ACCESO</span><b>{profile?.phone || 'No disponible'}</b><small>Este dato identifica tu cuenta y no se puede cambiar desde la aplicación.</small></div>
         <button className="primary-btn" onClick={()=>{setPasswordTarget(null);setTemporaryPassword('');setNewOwnPassword('');setPasswordModal(true)}}><ShieldCheck size={17}/> Cambiar contraseña</button>
         <button className="menu-back" onClick={()=>setPage('menu')}>Volver al menú</button>
       </section>}
@@ -638,7 +735,7 @@ function App() {
           <p className="muted">El teléfono queda autorizado y la cuenta se crea directamente. No hay registro libre.</p>
           <form className="create-form" onSubmit={createManagedMember}>
             <label>Teléfono (2964 + seis números)<input type="tel" inputMode="numeric" value={newMemberPhone} onChange={e=>setNewMemberPhone(e.target.value.replace(/\D/g,'').slice(0,10))} placeholder="2964XXXXXX" maxLength={10} pattern="2964[0-9]{6}" required/></label>
-            <label>Nombre del usuario<input value={newMemberName} onChange={e=>setNewMemberName(e.target.value)} placeholder="Nombre y apellido" minLength={2} maxLength={60} required/></label>
+            <label>Nombre visible<input value={newMemberName} onChange={e=>setNewMemberName(e.target.value)} placeholder="Nombre y apellido" minLength={3} maxLength={25} required/></label>
             <label>Contraseña inicial<input type="text" value={newMemberPassword} onChange={e=>setNewMemberPassword(e.target.value)} placeholder="Mínimo 8 caracteres" minLength={8} required/></label>
             <button className="primary-btn" disabled={creatingMember}>{creatingMember?'Creando cuenta…':'Autorizar y crear cuenta'}</button>
           </form>
@@ -648,7 +745,16 @@ function App() {
         {accessRequests.filter(r=>r.status==='pending').length===0?<p className="muted">No hay solicitudes pendientes.</p>:accessRequests.filter(r=>r.status==='pending').map(r=><article className="access-request-card" key={r.id}><div><b>{r.display_name}</b><span>{r.phone}</span><small>{new Date(r.created_at).toLocaleString('es-AR')}</small></div><div className="report-actions"><button disabled={accessBusy} onClick={()=>approveAccessRequest(r)}>{accessBusy?'Procesando…':'Autorizar y preparar WhatsApp'}</button><button onClick={()=>rejectAccessRequest(r)}>Rechazar</button></div></article>)}
         <div className="admin-section-head"><h2><ShieldCheck size={19}/> Usuarios y teléfonos</h2><span className="muted">{members.length} cuentas · {authorizedPhones.length} autorizaciones</span><button className="outline-btn" onClick={()=>{setPasswordTarget(null);setTemporaryPassword('');setNewOwnPassword('');setPasswordModal(true)}}>Cambiar mi contraseña</button></div>
         <div className="member-list authorized-phone-list">{[...members.map(member=>({member,authorized:authorizedPhones.find(a=>String(a.phone||'').replace(/\D/g,'').replace(/^549/,'')===String(member.phone||'').replace(/\D/g,'').replace(/^549/,''))})),...authorizedPhones.filter(a=>!members.some(member=>String(member.phone||'').replace(/\D/g,'').replace(/^549/,'')===String(a.phone||'').replace(/\D/g,'').replace(/^549/,''))).map(authorized=>({member:null,authorized}))].map(({member,authorized:a})=>{const phoneValue=member?.phone||a?.phone||'';const active=member?member.is_active!==false&&(!a||a.is_active):a?.is_active;return <article className="member-row" key={member?.id||a.phone}><div className="member-avatar">{(member?.display_name||'U').slice(0,1).toUpperCase()}</div><div className="member-info"><b>{member?.display_name||'Sin cuenta creada'}</b><span>{phoneValue}</span></div><span className={active?'member-state active':'member-state blocked'}>{active?'Activo':'Bloqueado'}</span>{member&&<><button className="reset-password-btn" onClick={()=>resetMemberPassword(member)}><ShieldCheck size={14}/> Contraseña</button>{member.role!=='admin'&&<><button className={member.is_active?'ban-btn':'unban-btn'} onClick={()=>setMemberActive(member,!member.is_active)}>{member.is_active?<><Ban size={15}/> Bloquear</>:<><CheckCircle2 size={15}/> Habilitar</>}</button>{member.id!==session?.user?.id&&<button className="ban-btn" disabled={accessBusy} onClick={()=>deleteMember(member)}><XCircle size={15}/> Eliminar cuenta</button>}</>}</>}{a&&<button className="ban-btn" onClick={()=>removeAuthorizedPhone(a)}><X size={15}/> Quitar autorización</button>}</article>})}</div>
-        <div className="admin-stats"><div><strong>{reports.filter(r=>r.status==='open').length}</strong><span>Denuncias pendientes</span></div><div><strong>{members.length}</strong><span>Miembros registrados</span></div><div><strong>{members.filter(m=>!m.is_active).length}</strong><span>Bloqueados</span></div></div>
+        <section className="admin-blocked-terms">
+           <div className="admin-section-head"><h2><ShieldCheck size={19}/> Filtro de nombres</h2><span className="muted">{blockedNameTerms.length} palabras y expresiones</span></div>
+           <p className="muted">Estas palabras se rechazan al guardar un nombre visible. El filtro también reconoce números y signos usados para disimularlas.</p>
+           <form className="blocked-term-form" onSubmit={addBlockedNameTerm}>
+             <input value={newBlockedTerm} onChange={e=>setNewBlockedTerm(e.target.value)} maxLength={40} placeholder="Agregar palabra o expresión…" aria-label="Nueva palabra prohibida"/>
+             <button className="primary-btn" disabled={blockedTermsBusy || newBlockedTerm.trim().length<2}>{blockedTermsBusy?'Guardando…':'Agregar'}</button>
+           </form>
+           <div className="blocked-term-list">{blockedNameTerms.map(item=><span className="blocked-term-chip" key={item.id || item.term}>{item.term}<button type="button" aria-label={'Quitar '+item.term} disabled={blockedTermsBusy} onClick={()=>removeBlockedNameTerm(item.term)}><X size={13}/></button></span>)}</div>
+         </section>
+         <div className="admin-stats"><div><strong>{reports.filter(r=>r.status==='open').length}</strong><span>Denuncias pendientes</span></div><div><strong>{members.length}</strong><span>Miembros registrados</span></div><div><strong>{members.filter(m=>!m.is_active).length}</strong><span>Bloqueados</span></div></div>
         <div className="admin-section-head"><h2><Flag size={19}/> Denuncias</h2><button className="outline-btn" onClick={markNotificationsRead}>Marcar avisos leídos</button></div>
         {reports.length===0?<p className="muted">Todavía no hay denuncias.</p>:reports.map(r=><article className="report-card" key={r.id}><div className="report-main"><span className={'status-pill '+r.status}>{r.status==='open'?'Pendiente':r.status==='reviewed'?'Revisada':'Cerrada'}</span><b>{r.reason}</b><p>{r.details||'Sin detalles adicionales.'}</p><small>Denunció: <strong>{r.reporter?.display_name||'Usuario'}</strong> · Teléfono: <strong>{r.reporter?.phone||'No disponible'}</strong></small><small>Publicación: {r.listing_title||r.listing?.title||'Ya no disponible'} · {new Date(r.created_at).toLocaleString('es-AR')}</small></div><div className="report-actions"><button onClick={()=>updateReport(r,'reviewed')}>Revisada</button>{r.listing_id&&<button onClick={()=>deleteReportedListing(r)}>Eliminar publicación</button>}{r.reported_user&&<button onClick={()=>{const member=members.find(m=>m.id===r.reported_user);if(member)setMemberActive(member,false);else setNotice('No se encontró el usuario denunciado.')}}>Bloquear usuario</button>}<button onClick={()=>updateReport(r,'closed')}>Cerrar</button></div></article>)}
         <div className="admin-section-head"><h2><Bell size={19}/> Avisos recientes</h2></div>
