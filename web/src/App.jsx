@@ -144,10 +144,11 @@ function App() {
   }, []);
 
   useEffect(() => {
+    knownMatchIdsRef.current = null;
+    pendingBellIdsRef.current = [];
+    setUnseenMatchIds([]);
     if (!session || !supabase) {
       setProfile(null); setListings([]); setMatches([]); setContacts([]);
-      knownMatchIdsRef.current = null;
-      setUnseenMatchIds([]);
       setLoading(false); return;
     }
     loadData();
