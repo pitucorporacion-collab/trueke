@@ -823,3 +823,21 @@
 .install-main-btn{min-height:52px;gap:10px;font-size:14px}
 .install-required-note{font-size:11px;color:#8b7798;text-align:center;line-height:1.45;margin:12px 0 0}
 @media(max-width:640px){.install-required-panel{padding:78px 22px 18px!important}.install-required-card{margin:auto!important}.install-main-btn{min-height:49px}}
+
+
+/* Display-name editing and moderation */
+.account-name-form{margin:22px 0 16px;max-width:520px}
+.account-name-form>small{display:block;color:#718078;font-size:12px;line-height:1.5;margin-top:-8px}
+.account-phone-lock{display:flex;flex-direction:column;gap:6px;padding:16px 18px;margin:16px 0 22px;background:#eef1e9;border:1px solid #dfe6da;border-radius:12px;max-width:520px}
+.account-phone-lock>span{font-size:9px;letter-spacing:.13em;font-weight:800;color:#728078}
+.account-phone-lock>b{font-size:15px;color:#25483b}
+.account-phone-lock>small{font-size:11px;color:#77847c;line-height:1.45}
+.admin-blocked-terms{margin:28px 0;padding:22px 24px;background:#fff;border:1px solid #e8e9e1;border-radius:16px}
+.admin-blocked-terms>p{font-size:12px;line-height:1.5;margin:0 0 14px}
+.blocked-term-form{display:flex;gap:10px;max-width:620px;margin:14px 0 18px}
+.blocked-term-form input{flex:1;min-width:0;border:1px solid #dfe4dc;border-radius:9px;padding:12px 13px;background:#fbfcf9;color:#203e33}
+.blocked-term-list{display:flex;flex-wrap:wrap;gap:8px}
+.blocked-term-chip{display:inline-flex;align-items:center;gap:7px;padding:7px 9px 7px 11px;background:#f2eee8;border:1px solid #e9e0d6;border-radius:999px;color:#634b3d;font-size:11px;font-weight:700}
+.blocked-term-chip button{display:grid;place-items:center;border:0;background:transparent;color:#8c6a56;padding:1px;border-radius:50%}
+.blocked-term-chip button:disabled{opacity:.45}
+@media(max-width:600px){.admin-blocked-terms{padding:17px 14px}.blocked-term-form{flex-direction:column}.blocked-term-form .primary-btn{justify-content:center}.account-phone-lock{width:100%}}
