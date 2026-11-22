@@ -719,7 +719,7 @@ function App() {
           <div className="account-data-row"><span>Teléfono</span><b>{profile?.phone || (profileLoadError?'No disponible':'Cargando…')}</b><small>No se puede modificar</small></div>
         </div>
         <div className="account-actions">
-          <button className="primary-btn" onClick={openNameChange}><UserRound size={17}/> Cambiar nombre <ArrowRight size={16}/></button>
+          <button className="primary-btn" onClick={openNameChange}><Users size={17}/> Cambiar nombre <ArrowRight size={16}/></button>
           <button className="primary-btn" onClick={()=>{setPasswordTarget(null);setTemporaryPassword('');setNewOwnPassword('');setPasswordModal(true)}}><ShieldCheck size={17}/> Cambiar contraseña <ArrowRight size={16}/></button>
         </div>
         <button className="menu-back" onClick={()=>setPage('menu')}>Volver al menú</button>
