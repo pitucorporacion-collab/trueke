@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import {
   ArrowLeft, ArrowRight, ArrowUpRight, Bell, Check, Heart, ImagePlus, Smartphone, LogOut, Menu, XCircle,
@@ -48,6 +48,9 @@ function App() {
   const [listings,setListings] = useState([]);
   const [photos,setPhotos] = useState({});
   const [matches,setMatches] = useState([]);
+  const [unseenMatchIds,setUnseenMatchIds] = useState([]);
+  const knownMatchIdsRef = useRef(null);
+  const audioContextRef = useRef(null);
   const [contacts,setContacts] = useState([]);
   const [proposals,setProposals] = useState([]);
   const [reports,setReports] = useState([]);
@@ -142,10 +145,56 @@ function App() {
   useEffect(() => {
     if (!session || !supabase) {
       setProfile(null); setListings([]); setMatches([]); setContacts([]);
+      knownMatchIdsRef.current = null;
+      setUnseenMatchIds([]);
       setLoading(false); return;
     }
     loadData();
   }, [session]);
+
+  useEffect(() => {
+    const unlockAudio = () => {
+      const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+      if (!AudioContextClass) return;
+      if (!audioContextRef.current) audioContextRef.current = new AudioContextClass();
+      if (audioContextRef.current.state === 'suspended') audioContextRef.current.resume().catch(()=>{});
+    };
+    window.addEventListener('pointerdown',unlockAudio);
+    window.addEventListener('keydown',unlockAudio);
+    return () => {
+      window.removeEventListener('pointerdown',unlockAudio);
+      window.removeEventListener('keydown',unlockAudio);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!session || !supabase) return;
+    let active = true;
+    const refreshMatches = async () => {
+      if (document.visibilityState !== 'visible') return;
+      const [{data:matchRows},{data:contactRows},{data:proposalRows}] = await Promise.all([
+        supabase.from('matches').select('*').or('user_one.eq.'+session.user.id+',user_two.eq.'+session.user.id).order('created_at',{ascending:false}),
+        supabase.rpc('get_trueke_match_contacts'),
+        supabase.from('direct_proposals').select('*').or('sender_id.eq.'+session.user.id+',recipient_id.eq.'+session.user.id).order('created_at',{ascending:false})
+      ]);
+      if (!active) return;
+      if (matchRows) applyMatchRows(matchRows);
+      if (contactRows) setContacts(contactRows);
+      if (proposalRows) setProposals(proposalRows);
+    };
+    const timer = window.setInterval(refreshMatches,8000);
+    const onVisible = () => { if (document.visibilityState === 'visible') refreshMatches(); };
+    document.addEventListener('visibilitychange',onVisible);
+    return () => {
+      active = false;
+      window.clearInterval(timer);
+      document.removeEventListener('visibilitychange',onVisible);
+    };
+  }, [session]);
+
+  useEffect(() => {
+    if (page === 'matches' && matches.length) markMatchesSeen();
+  }, [page,matches,session]);
 
   useEffect(() => {
     if (!session || profile?.role !== 'admin') return;
@@ -175,6 +224,67 @@ function App() {
     return () => window.clearInterval(timer);
   }, [session, profile?.role]);
 
+  function playMatchBell() {
+    const context = audioContextRef.current;
+    if (!context || context.state !== 'running') return;
+    const now = context.currentTime;
+    const gain = context.createGain();
+    gain.gain.setValueAtTime(0.0001,now);
+    gain.gain.exponentialRampToValueAtTime(0.13,now+0.025);
+    gain.gain.exponentialRampToValueAtTime(0.0001,now+0.62);
+    gain.connect(context.destination);
+    [880,1174].forEach((frequency,index) => {
+      const oscillator = context.createOscillator();
+      oscillator.type = 'sine';
+      oscillator.frequency.setValueAtTime(frequency,now+index*0.045);
+      oscillator.connect(gain);
+      oscillator.start(now+index*0.045);
+      oscillator.stop(now+0.65);
+    });
+  }
+
+  function applyMatchRows(rows) {
+    const currentIds = new Set((rows || []).map(row=>row.id));
+    const storageKey = 'trueke_seen_matches_'+session?.user?.id;
+    if (knownMatchIdsRef.current === null) {
+      knownMatchIdsRef.current = currentIds;
+      if (!session?.user?.id) return;
+      try {
+        const stored = localStorage.getItem(storageKey);
+        if (stored === null) {
+          const cutoff = Date.now()-24*60*60*1000;
+          const recentIds = (rows || []).filter(row=>new Date(row.created_at).getTime()>=cutoff).map(row=>row.id);
+          const oldIds = [...currentIds].filter(id=>!recentIds.includes(id));
+          localStorage.setItem(storageKey,JSON.stringify(oldIds));
+          setUnseenMatchIds(recentIds);
+        } else {
+          const seen = new Set(JSON.parse(stored));
+          setUnseenMatchIds((rows || []).filter(row=>!seen.has(row.id)).map(row=>row.id));
+        }
+      } catch { setUnseenMatchIds([]); }
+      return;
+    }
+    const newRows = (rows || []).filter(row=>!knownMatchIdsRef.current.has(row.id));
+    currentIds.forEach(id=>knownMatchIdsRef.current.add(id));
+    if (newRows.length) {
+      setUnseenMatchIds(previous=>[...new Set([...previous,...newRows.map(row=>row.id)])]);
+      newRows.forEach(()=>playMatchBell());
+    }
+  }
+
+  function markMatchesSeen() {
+    if (!session?.user?.id) return;
+    const storageKey = 'trueke_seen_matches_'+session.user.id;
+    try {
+      const stored = JSON.parse(localStorage.getItem(storageKey) || '[]');
+      const allSeen = [...new Set([...stored,...matches.map(row=>row.id)])];
+      localStorage.setItem(storageKey,JSON.stringify(allSeen));
+    } catch {
+      localStorage.setItem(storageKey,JSON.stringify(matches.map(row=>row.id)));
+    }
+    setUnseenMatchIds([]);
+  }
+
   async function loadData() {
     setLoading(true);
     const [{data:me,error:profileError},{data:rows,error}] = await Promise.all([
@@ -201,6 +311,7 @@ function App() {
       supabase.rpc('get_trueke_match_contacts'),
       supabase.from('direct_proposals').select('*').or('sender_id.eq.'+session.user.id+',recipient_id.eq.'+session.user.id).order('created_at',{ascending:false})
     ]);
+    applyMatchRows(matchRows || []);
     setMatches(matchRows || []);
     const {data:swipeRows} = await supabase.from('listing_swipes').select('listing_id,decision').eq('user_id',session.user.id);
     setSwipeDecisions(Object.fromEntries((swipeRows || []).map(row=>[row.listing_id,row.decision])));
@@ -679,6 +790,7 @@ function App() {
   </main>;
 
   const unreadCount = notifications.filter(n=>!n.read_at).length;
+  const showBellDot = unseenMatchIds.length>0 || (profile?.role==='admin' && unreadCount>0);
   const contactMap = Object.fromEntries(contacts.map(c=>[c.match_id,c]));
   const incoming = proposals.filter(p=>p.recipient_id===session.user.id && p.status==='pending');
   const outgoing = proposals.filter(p=>p.sender_id===session.user.id);
@@ -687,7 +799,7 @@ function App() {
     <header className="topbar">
       <a className="brand" href="#" onClick={()=>setPage('explore')}><div className="brand-mark"><Handshake size={21}/></div><span>Trueke <b>Para Rio Grande</b></span></a>
       <button className="app-menu-button" onClick={()=>setPage('menu')}><Menu size={19}/> Menú</button>
-      <div className="top-actions"><button className="icon-btn" aria-label="Notificaciones" onClick={()=>profile?.role==='admin'?setPage('admin'):setPage('matches')}><Bell size={19}/>{unreadCount>0&&<i className="notification-dot"/>}</button><div className="user-chip"><div className="avatar">{(profile?.display_name||'U').slice(0,1).toUpperCase()}</div><span>{profile?.display_name||'Mi cuenta'}</span>{profile?.role==='admin'&&<span className="admin-pill">ADMIN</span>}</div></div>
+      <div className="top-actions"><button className="icon-btn" aria-label="Notificaciones" onClick={()=>{if(unseenMatchIds.length){markMatchesSeen();setPage('matches')}else if(profile?.role==='admin')setPage('admin');else setPage('matches')}}><Bell size={19}/>{showBellDot&&<i className="notification-dot"/>}</button><div className="user-chip"><div className="avatar">{(profile?.display_name||'U').slice(0,1).toUpperCase()}</div><span>{profile?.display_name||'Mi cuenta'}</span>{profile?.role==='admin'&&<span className="admin-pill">ADMIN</span>}</div></div>
     </header>
     <main>
       {page==='menu'&&<section className="menu-page">
