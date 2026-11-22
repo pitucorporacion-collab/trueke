@@ -38,6 +38,10 @@ function App() {
   const [profile,setProfile] = useState(null);
   const [displayNameDraft,setDisplayNameDraft] = useState('');
   const [displayNameBusy,setDisplayNameBusy] = useState(false);
+  const [nameModalOpen,setNameModalOpen] = useState(false);
+  const [nameModalStep,setNameModalStep] = useState('edit');
+  const [nameFeedback,setNameFeedback] = useState('');
+  const [profileLoadError,setProfileLoadError] = useState('');
   const [blockedNameTerms,setBlockedNameTerms] = useState([]);
   const [newBlockedTerm,setNewBlockedTerm] = useState('');
   const [blockedTermsBusy,setBlockedTermsBusy] = useState(false);
@@ -173,12 +177,13 @@ function App() {
 
   async function loadData() {
     setLoading(true);
-    const [{data:me},{data:rows,error}] = await Promise.all([
+    const [{data:me,error:profileError},{data:rows,error}] = await Promise.all([
       supabase.from('profiles').select('id,display_name,phone,role,is_active,created_at').eq('id',session.user.id).single(),
       supabase.from('listings').select('*, profiles(display_name), listing_images(id,storage_path,sort_order)').or('status.eq.published,user_id.eq.'+session.user.id).order('created_at',{ascending:false})
     ]);
     setProfile(me || null);
     setDisplayNameDraft(me?.display_name || '');
+    setProfileLoadError(profileError ? 'No pudimos cargar los datos de tu cuenta. ' + profileError.message : '');
     if (error) setNotice('No pudimos cargar las publicaciones. Revisá tu conexión.');
     const items = rows || [];
     setListings(items);
@@ -503,33 +508,54 @@ function App() {
     setPasswordBusy(false);
   }
 
-  async function saveDisplayName(e) {
+  function openNameChange() {
+    setDisplayNameDraft(profile?.display_name || '');
+    setNameFeedback('');
+    setNameModalStep('edit');
+    setNameModalOpen(true);
+  }
+
+  function continueNameChange(e) {
     e.preventDefault();
     const cleanName = displayNameDraft.trim().replace(/\s+/g, ' ');
     if (cleanName.length < 3 || cleanName.length > 25) {
-      setNotice('El nombre visible debe tener entre 3 y 25 caracteres.');
+      setNameFeedback('El nombre debe tener entre 3 y 25 caracteres.');
+      return;
+    }
+    if (cleanName === (profile?.display_name || '').trim()) {
+      setNameFeedback('El nuevo nombre es igual al actual. No hay cambios para guardar.');
       return;
     }
     if (isBlockedDisplayName(cleanName, blockedNameTerms)) {
-      setNotice('Ese nombre contiene una palabra no permitida. Probá con otro nombre.');
+      setNameFeedback('Ese nombre contiene una palabra no permitida. Probá con otro nombre.');
       return;
     }
+    setDisplayNameDraft(cleanName);
+    setNameFeedback('');
+    setNameModalStep('review');
+  }
+
+  async function saveDisplayName(e) {
+    e.preventDefault();
+    const cleanName = displayNameDraft.trim().replace(/\s+/g, ' ');
     setDisplayNameBusy(true);
-    setNotice('');
+    setNameFeedback('');
     const {data,error} = await supabase.from('profiles')
       .update({display_name:cleanName})
       .eq('id',session.user.id)
       .select('id,display_name,phone,role,is_active,created_at')
       .single();
     setDisplayNameBusy(false);
-    if (error) {
-      setNotice(error.message?.includes('nombre') || error.message?.includes('permitido')
+    if (error || !data) {
+      setNameFeedback(error?.message?.toLowerCase().includes('nombre') || error?.message?.toLowerCase().includes('permitido')
         ? error.message
-        : 'No se pudo cambiar el nombre. Revisá que cumpla las reglas e intentá nuevamente.');
+        : 'No se pudo guardar el nombre. ' + (error?.message || 'No se recibió confirmación del servidor.'));
       return;
     }
     setProfile(data);
     setDisplayNameDraft(data.display_name);
+    setNameModalOpen(false);
+    setNameFeedback('');
     setNotice('Nombre visible actualizado correctamente.');
     await loadData();
   }
@@ -686,15 +712,16 @@ function App() {
         <button className="menu-back" onClick={()=>setPage('menu')}>Volver al menú</button>
       </section>}
       {page==='account'&&<section className="dashboard-section account-page">
-        <span className="eyebrow">TU PERFIL</span><h1>Mi cuenta</h1><p className="muted">Tus datos de acceso y seguridad.</p>
-        <div className="account-summary"><div className="avatar account-avatar">{(profile?.display_name||'U').slice(0,1).toUpperCase()}</div><div><b>{profile?.display_name||'Mi cuenta'}</b><span>Tu perfil en la comunidad</span></div></div>
-        <form className="create-form account-name-form" onSubmit={saveDisplayName}>
-          <label>Nombre visible<input value={displayNameDraft} onChange={e=>setDisplayNameDraft(e.target.value)} minLength={3} maxLength={25} placeholder="Cómo querés aparecer" required/></label>
-          <small>Este nombre aparece en tus publicaciones y matches. Podés cambiarlo cuando quieras.</small>
-          <button className="primary-btn" disabled={displayNameBusy || displayNameDraft.trim().length<3}>{displayNameBusy?'Guardando…':'Guardar nombre visible'} <ArrowRight size={16}/></button>
-        </form>
-        <div className="account-phone-lock"><span>TELÉFONO DE ACCESO</span><b>{profile?.phone || 'No disponible'}</b><small>Este dato identifica tu cuenta y no se puede cambiar desde la aplicación.</small></div>
-        <button className="primary-btn" onClick={()=>{setPasswordTarget(null);setTemporaryPassword('');setNewOwnPassword('');setPasswordModal(true)}}><ShieldCheck size={17}/> Cambiar contraseña</button>
+        <span className="eyebrow">TU PERFIL</span><h1>Mi cuenta</h1><p className="muted">Tus datos personales y de acceso.</p>
+        {profileLoadError&&<div className="account-feedback account-feedback-error">{profileLoadError}</div>}
+        <div className="account-details-card">
+          <div className="account-details-heading"><div className="avatar account-avatar">{(profile?.display_name||'?').slice(0,1).toUpperCase()}</div><div><span className="eyebrow">NOMBRE DE USUARIO</span><b>{profile?.display_name || (profileLoadError?'No disponible':'Cargando…')}</b></div></div>
+          <div className="account-data-row"><span>Teléfono</span><b>{profile?.phone || (profileLoadError?'No disponible':'Cargando…')}</b><small>No se puede modificar</small></div>
+        </div>
+        <div className="account-actions">
+          <button className="primary-btn" onClick={openNameChange}><UserRound size={17}/> Cambiar nombre <ArrowRight size={16}/></button>
+          <button className="primary-btn" onClick={()=>{setPasswordTarget(null);setTemporaryPassword('');setNewOwnPassword('');setPasswordModal(true)}}><ShieldCheck size={17}/> Cambiar contraseña <ArrowRight size={16}/></button>
+        </div>
         <button className="menu-back" onClick={()=>setPage('menu')}>Volver al menú</button>
       </section>}
       {page==='explore'&&<section className="swipe-home">
@@ -763,6 +790,9 @@ function App() {
     </main>
     <footer className="footer"><a className="brand" href="#"><div className="brand-mark"><Handshake size={18}/></div><span>Trueke <b>Para Rio Grande</b></span></a><span>Una comunidad. Muchas posibilidades.</span><span>© 2026 Trueke PRG</span></footer>
 
+    {nameModalOpen&&<div className="modal-backdrop" onMouseDown={e=>{if(e.target===e.currentTarget&&!displayNameBusy)setNameModalOpen(false)}}><div className="create-modal name-change-modal"><div className="modal-head"><div><span className="eyebrow">DATOS DE TU CUENTA</span><h2>{nameModalStep==='edit'?'Cambiar nombre':'Confirmar cambio'}</h2><p>{nameModalStep==='edit'?'Elegí cómo querés aparecer en Trueke PRG.':'Revisá los datos antes de confirmar.'}</p></div><button className="icon-btn" type="button" onClick={()=>setNameModalOpen(false)} disabled={displayNameBusy}><X/></button></div>
+      {nameModalStep==='edit'?<form className="create-form" onSubmit={continueNameChange}><div className="name-current-value"><span>NOMBRE ACTUAL</span><b>{profile?.display_name || 'No disponible'}</b></div><label>Nuevo nombre visible<input autoFocus value={displayNameDraft} onChange={e=>{setDisplayNameDraft(e.target.value);setNameFeedback('')}} minLength={3} maxLength={25} placeholder="Escribí tu nuevo nombre" required/></label><p className="name-change-note">Tu teléfono no cambia. El nuevo nombre aparecerá en tu perfil, publicaciones y demás espacios de Trueke PRG.</p>{nameFeedback&&<div className="account-feedback account-feedback-error">{nameFeedback}</div>}<button className="primary-btn" type="submit">Revisar cambio <ArrowRight size={16}/></button></form>:<form className="create-form" onSubmit={saveDisplayName}><div className="name-review"><div><span>NOMBRE ACTUAL</span><b>{profile?.display_name || 'No disponible'}</b></div><div className="name-review-arrow"><ArrowRight size={20}/></div><div><span>NUEVO NOMBRE</span><b>{displayNameDraft}</b></div></div><p className="name-change-note">Al confirmar, este nombre reemplazará al actual y se mostrará en tus publicaciones y en tu perfil. El teléfono y los datos de acceso permanecerán iguales.</p>{nameFeedback&&<div className="account-feedback account-feedback-error">{nameFeedback}</div>}<div className="name-review-actions"><button className="outline-btn" type="button" onClick={()=>{setNameModalStep('edit');setNameFeedback('')}} disabled={displayNameBusy}>Volver</button><button className="primary-btn" type="submit" disabled={displayNameBusy}>{displayNameBusy?'Guardando…':'Confirmar cambio'} <Check size={16}/></button></div></form>}
+    </div></div>}
     {passwordModal&&<div className="modal-backdrop" onMouseDown={e=>{if(e.target===e.currentTarget){setPasswordModal(false);setPasswordTarget(null);setTemporaryPassword('');setNewOwnPassword('')}}}><div className="create-modal password-modal"><div className="modal-head"><div><span className="eyebrow">SEGURIDAD DE LA CUENTA</span><h2>{passwordTarget?'Contraseña temporal':'Cambiar mi contraseña'}</h2><p>{passwordTarget?'Usuario: '+(passwordTarget.phone || passwordTarget.display_name):'Elegí una contraseña nueva para tu cuenta.'}</p></div><button className="icon-btn" onClick={()=>{setPasswordModal(false);setPasswordTarget(null);setTemporaryPassword('');setNewOwnPassword('')}}><X/></button></div>{passwordTarget?<div className="password-result">{passwordBusy?<p>Generando contraseña segura…</p>:temporaryPassword?<><p>Esta contraseña reemplazó la anterior. Copiala y entregásela al usuario por un canal privado. No volverá a mostrarse.</p><code>{temporaryPassword}</code><button className="primary-btn" onClick={()=>navigator.clipboard.writeText(temporaryPassword)}><Check size={16}/> Copiar contraseña</button></>:<p>Preparando…</p>}</div>:<form className="create-form" onSubmit={changeOwnPassword}><label>Nueva contraseña<input type="password" value={newOwnPassword} onChange={e=>setNewOwnPassword(e.target.value)} minLength={8} autoComplete="new-password" placeholder="Mínimo 8 caracteres" required/></label><button className="primary-btn" disabled={passwordBusy || newOwnPassword.length<8}>{passwordBusy?'Guardando…':'Guardar nueva contraseña'} <ArrowRight size={16}/></button></form>}</div></div>}
     {selectedListing&&<div className="modal-backdrop" onMouseDown={e=>{if(e.target===e.currentTarget)setSelectedListing(null)}}><div className="create-modal detail-modal"><div className="modal-head"><div><span className="eyebrow">DETALLE DEL INTERCAMBIO</span><h2>{selectedListing.title}</h2><p><MapPin size={13} style={{display:'inline',verticalAlign:'middle'}}/> {selectedListing.location||'Ubicación a coordinar'}</p></div><button className="icon-btn" onClick={()=>setSelectedListing(null)}><X/></button></div>{photos[selectedListing.id]&&<img className="detail-image" src={photos[selectedListing.id]} alt={selectedListing.title}/>}<div className="detail-copy"><span className="eyebrow">QUÉ OFRECE</span><p>{selectedListing.description||'El miembro no agregó detalles adicionales.'}</p><div className="swap-for"><span>BUSCA A CAMBIO</span><b>{selectedListing.looking_for}</b></div><div className="detail-owner"><div className="mini-avatar">{(selectedListing.profiles?.display_name||'U').slice(0,1).toUpperCase()}</div><span>Publicado por <b>{selectedListing.profiles?.display_name||'Miembro'}</b></span></div><div className="detail-buttons"><button className="interest-btn" onClick={()=>{addInterest(selectedListing);setSelectedListing(null)}}><Heart size={16}/> Me interesa</button>{selectedListing.user_id!==session.user.id&&<button className="primary-btn" onClick={()=>setProposalOpen(true)}><Send size={16}/> Proponer intercambio</button>}<button className="report-link" onClick={()=>{setReportTarget({listingId:selectedListing.id,userId:selectedListing.user_id,title:selectedListing.title});setSelectedListing(null)}}><Flag size={15}/> Reportar</button></div></div></div></div>}
     {proposalOpen&&selectedListing&&<div className="modal-backdrop"><div className="create-modal"><div className="modal-head"><div><span className="eyebrow">PROPUESTA DIRECTA</span><h2>Proponer un intercambio</h2><p>{selectedListing.title}</p></div><button className="icon-btn" onClick={()=>setProposalOpen(false)}><X/></button></div><form className="create-form" onSubmit={sendProposal}><label>Tu propuesta<textarea value={proposalText} onChange={e=>setProposalText(e.target.value)} rows={4} maxLength={1500} placeholder="Contale qué podés ofrecer a cambio…" required/></label><button className="primary-btn" disabled={!proposalText.trim()}>Enviar propuesta <ArrowRight size={16}/></button></form></div></div>}
