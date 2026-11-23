@@ -520,7 +520,7 @@ function App() {
       if (error?.code === '23505') setRequestFeedback('Ya existe una solicitud pendiente para ese número. No hace falta enviarla otra vez.');
       else if (error) setRequestFeedback(error.message?.toLowerCase().includes('nombre') || error.message?.toLowerCase().includes('permitido') ? error.message : 'No pudimos enviar la solicitud. Revisá tus datos e intentá nuevamente.');
       else {
-        setRequestFeedback('Tu solicitud fue registrada. Cuando se habilite tu acceso, te enviaremos tu usuario y contraseña por WhatsApp.');
+        setRequestFeedback('Se realizó la carga del usuario. En breve te llegará un mensaje de confirmación al WhatsApp.');
         setRequestName(''); setRequestPhone('');
       }
     } catch (err) {
@@ -776,7 +776,7 @@ function App() {
       <span className="eyebrow">BIENVENIDO A TRUEKE PRG</span>
       <h1>Solicitá tu usuario</h1>
       <p className="muted">Completá tus datos y, cuando se habilite tu acceso, te enviaremos tu usuario y contraseña por WhatsApp.</p>
-      {requestFeedback.startsWith('¡') ? <div className="request-confirmation" role="status" aria-live="polite"><CheckCircle2 size={28}/><h2>¡Solicitud enviada!</h2><p>{requestFeedback}</p><button type="button" className="primary-btn full" onClick={()=>{setAccessRequestOpen(false);setRequestFeedback('')}}>Volver al inicio</button></div> : <form className="access-request-form" onSubmit={submitAccessRequest}>
+      {requestFeedback === 'Se realizó la carga del usuario. En breve te llegará un mensaje de confirmación al WhatsApp.' ? <div className="request-confirmation" role="status" aria-live="polite"><CheckCircle2 size={28}/><p>{requestFeedback}</p></div> : <form className="access-request-form" onSubmit={submitAccessRequest}>
         <label>Tu teléfono<input type="tel" inputMode="numeric" autoComplete="tel" value={requestPhone} onChange={e=>setRequestPhone(e.target.value.replace(/\D/g,'').slice(0,10))} placeholder="2964XXXXXX" maxLength={10} pattern="2964[0-9]{6}" required/><small>Usá 2964 seguido de otros 6 números.</small></label>
         <label>Tu nombre y apellido<input autoComplete="name" value={requestName} onChange={e=>setRequestName(e.target.value)} placeholder="Ej.: María Pérez" minLength={3} maxLength={25} required/><small>Este será tu nombre visible en Trueke PRG.</small></label>
         {requestFeedback&&<div role="alert" className="request-feedback error">{requestFeedback}</div>}
