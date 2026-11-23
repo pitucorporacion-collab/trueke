@@ -3,7 +3,7 @@ import { createClient } from '@supabase/supabase-js';
 import {
   ArrowLeft, ArrowRight, ArrowUpRight, Bell, Check, Heart, ImagePlus, Smartphone, LogOut, Menu, XCircle,
   MapPin, Plus, Search, ShieldCheck, Tag, X, MessageCircle, Flag,
-  Users, Ban, CheckCircle2, Send, Handshake, AlertTriangle
+  Users, Ban, CheckCircle2, Send, Handshake, AlertTriangle, Trash2
 } from 'lucide-react';
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
@@ -48,6 +48,7 @@ function App() {
   const [listings,setListings] = useState([]);
   const [photos,setPhotos] = useState({});
   const [matches,setMatches] = useState([]);
+  const [deletingMatchIds,setDeletingMatchIds] = useState([]);
   const [unseenMatchIds,setUnseenMatchIds] = useState([]);
   const knownMatchIdsRef = useRef(null);
   const audioContextRef = useRef(null);
@@ -175,13 +176,17 @@ function App() {
     let active = true;
     const refreshMatches = async () => {
       if (document.visibilityState !== 'visible') return;
-      const [{data:matchRows},{data:contactRows},{data:proposalRows}] = await Promise.all([
+      const [{data:matchRows},{data:contactRows},{data:proposalRows},{data:dismissalRows}] = await Promise.all([
         supabase.from('matches').select('*').or('user_one.eq.'+session.user.id+',user_two.eq.'+session.user.id).order('created_at',{ascending:false}),
         supabase.rpc('get_trueke_match_contacts'),
-        supabase.from('direct_proposals').select('*').or('sender_id.eq.'+session.user.id+',recipient_id.eq.'+session.user.id).order('created_at',{ascending:false})
+        supabase.from('direct_proposals').select('*').or('sender_id.eq.'+session.user.id+',recipient_id.eq.'+session.user.id).order('created_at',{ascending:false}),
+        supabase.from('match_dismissals').select('match_id').eq('user_id',session.user.id)
       ]);
       if (!active) return;
-      if (matchRows) applyMatchRows(matchRows);
+      const dismissedIds = new Set((dismissalRows || []).map(row=>row.match_id));
+      const visibleMatches = (matchRows || []).filter(row=>!dismissedIds.has(row.id));
+      if (matchRows) applyMatchRows(visibleMatches);
+      if (matchRows) setMatches(visibleMatches);
       if (contactRows) setContacts(contactRows);
       if (proposalRows) setProposals(proposalRows);
     };
@@ -325,6 +330,22 @@ function App() {
     setUnseenMatchIds([]);
   }
 
+  async function dismissMatch(match) {
+    if (!session?.user?.id || deletingMatchIds.includes(match.id)) return;
+    if (!window.confirm('¿Querés quitar este match de tu lista? La otra persona lo seguirá viendo.')) return;
+    setDeletingMatchIds(previous=>[...previous,match.id]);
+    const {error} = await supabase.from('match_dismissals').insert({match_id:match.id,user_id:session.user.id});
+    if (error) {
+      setNotice('No se pudo eliminar el match. Intentá nuevamente.');
+      setDeletingMatchIds(previous=>previous.filter(id=>id!==match.id));
+      return;
+    }
+    setMatches(previous=>previous.filter(row=>row.id!==match.id));
+    setUnseenMatchIds(previous=>previous.filter(id=>id!==match.id));
+    pendingBellIdsRef.current = pendingBellIdsRef.current.filter(id=>id!==match.id);
+    setDeletingMatchIds(previous=>previous.filter(id=>id!==match.id));
+  }
+
   async function loadData() {
     setLoading(true);
     const [{data:me,error:profileError},{data:rows,error}] = await Promise.all([
@@ -346,13 +367,16 @@ function App() {
       }
     }));
     setPhotos(photoMap);
-    const [{data:matchRows},{data:contactRows},{data:proposalRows}] = await Promise.all([
+    const [{data:matchRows},{data:contactRows},{data:proposalRows},{data:dismissalRows}] = await Promise.all([
       supabase.from('matches').select('*').or('user_one.eq.'+session.user.id+',user_two.eq.'+session.user.id).order('created_at',{ascending:false}),
       supabase.rpc('get_trueke_match_contacts'),
-      supabase.from('direct_proposals').select('*').or('sender_id.eq.'+session.user.id+',recipient_id.eq.'+session.user.id).order('created_at',{ascending:false})
+      supabase.from('direct_proposals').select('*').or('sender_id.eq.'+session.user.id+',recipient_id.eq.'+session.user.id).order('created_at',{ascending:false}),
+      supabase.from('match_dismissals').select('match_id').eq('user_id',session.user.id)
     ]);
-    applyMatchRows(matchRows || []);
-    setMatches(matchRows || []);
+    const dismissedIds = new Set((dismissalRows || []).map(row=>row.match_id));
+    const visibleMatches = (matchRows || []).filter(row=>!dismissedIds.has(row.id));
+    applyMatchRows(visibleMatches);
+    setMatches(visibleMatches);
     const {data:swipeRows} = await supabase.from('listing_swipes').select('listing_id,decision').eq('user_id',session.user.id);
     setSwipeDecisions(Object.fromEntries((swipeRows || []).map(row=>[row.listing_id,row.decision])));
     setContacts(contactRows || []);
@@ -902,7 +926,7 @@ function App() {
       </section>}
       {page==='matches'&&<section className="dashboard-section"><span className="eyebrow">TUS CONEXIONES</span><h1>Mis matches</h1><p className="muted">Cuando dos personas se interesan mutuamente, pueden coordinar por WhatsApp.</p>
         {matches.length===0&&<div className="empty-state"><Handshake size={34}/><h3>Todavía no tenés matches</h3><p>Marcá «Me interesa» en publicaciones. Si la otra persona también se interesa por algo tuyo, aparecerá acá.</p></div>}
-        <div className="match-list">{matches.map(m=>{const c=contactMap[m.id];const mine=m.user_one===session.user.id?listings.find(l=>l.id===m.listing_one_id):listings.find(l=>l.id===m.listing_two_id);const theirs=m.user_one===session.user.id?listings.find(l=>l.id===m.listing_two_id):listings.find(l=>l.id===m.listing_one_id);const itemA=mine?.title||'tu publicación';const itemB=theirs?.title||'su publicación';const chatText=encodeURIComponent('¡Hola! Hicimos match en Trueke PRG por «'+itemA+'» y «'+itemB+'». ¿Coordinamos el intercambio?');return <article className="match-card" key={m.id}><div className="match-avatar">{(c?.display_name||'M').slice(0,1).toUpperCase()}</div><div className="match-info"><b>{c?.display_name||'Miembro de Trueke'}</b><small>Match confirmado · {new Date(m.created_at).toLocaleDateString('es-AR')}</small><span className="match-items">Artículos del match: <strong>{itemA}</strong> ↔ <strong>{itemB}</strong></span><span>{c?.phone||'Contacto protegido'}</span></div>{c?.phone&&<a className="whatsapp-btn" href={'https://wa.me/'+c.phone.replace(/\D/g,'')+'?text='+chatText} target="_blank" rel="noreferrer"><MessageCircle size={17}/> Abrir chat</a>}</article>})}</div>
+        <div className="match-list">{matches.map(m=>{const c=contactMap[m.id];const mine=m.user_one===session.user.id?listings.find(l=>l.id===m.listing_one_id):listings.find(l=>l.id===m.listing_two_id);const theirs=m.user_one===session.user.id?listings.find(l=>l.id===m.listing_two_id):listings.find(l=>l.id===m.listing_one_id);const itemA=mine?.title||'tu publicación';const itemB=theirs?.title||'su publicación';const chatText=encodeURIComponent('¡Hola! Hicimos match en Trueke PRG por «'+itemA+'» y «'+itemB+'». ¿Coordinamos el intercambio?');return <article className="match-card" key={m.id} style={{position:'relative',paddingTop:48}}><button type="button" className="match-delete-btn" title="Eliminar de mi lista" aria-label="Eliminar match" disabled={deletingMatchIds.includes(m.id)} onClick={()=>dismissMatch(m)} style={{position:'absolute',top:10,right:10,display:'inline-flex',alignItems:'center',justifyContent:'center',width:34,height:34,border:'1px solid #f0caca',borderRadius:10,background:'#fff7f7',color:'#b42318',cursor:'pointer'}}><Trash2 size={17}/></button><div className="match-avatar">{(c?.display_name||'M').slice(0,1).toUpperCase()}</div><div className="match-info"><b>{c?.display_name||'Miembro de Trueke'}</b><small>Match confirmado · {new Date(m.created_at).toLocaleDateString('es-AR')}</small><span className="match-items">Artículos del match: <strong>{itemA}</strong> ↔ <strong>{itemB}</strong></span><span>{c?.phone||'Contacto protegido'}</span></div>{c?.phone&&<a className="whatsapp-btn" href={'https://wa.me/'+c.phone.replace(/\D/g,'')+'?text='+chatText} target="_blank" rel="noreferrer"><MessageCircle size={17}/> Abrir chat</a>}</article>})}</div>
         {incoming.length>0&&<><h2 className="subheading">Propuestas recibidas</h2>{incoming.map(p=><article className="proposal-card" key={p.id}><div><b>Propuesta directa</b><p>{p.message}</p><small>{new Date(p.created_at).toLocaleDateString('es-AR')}</small></div><button className="primary-btn" onClick={()=>acceptProposal(p.id)}><CheckCircle2 size={16}/> Aceptar y hacer match</button></article>)}</>}
         {outgoing.length>0&&<><h2 className="subheading">Propuestas enviadas</h2>{outgoing.map(p=><article className="proposal-card" key={p.id}><div><b>{p.status==='accepted'?'Aceptada':p.status==='rejected'?'Rechazada':'Pendiente'}</b><p>{p.message}</p></div></article>)}</>}
       </section>}
