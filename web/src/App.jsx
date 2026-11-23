@@ -101,7 +101,7 @@ function App() {
   const [swipeDecisions,setSwipeDecisions] = useState({});
   const [swipeStart,setSwipeStart] = useState(null);
   const [swipeBusy,setSwipeBusy] = useState(false);
-  const categories = ['Tecnología','Muebles','Moda','Súper','Herramientas','Música','Juguetes y varios'];
+  const categories = ['Tecnología','Muebles','Moda','Súper','Herramientas','Música','Juguetes y varios','Otros'];
   const [formCategory,setFormCategory] = useState('Juguetes y varios');
 
   useEffect(() => {
