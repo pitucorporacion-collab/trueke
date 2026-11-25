@@ -49,6 +49,7 @@ function App() {
   const [photos,setPhotos] = useState({});
   const [matches,setMatches] = useState([]);
   const [deletingMatchIds,setDeletingMatchIds] = useState([]);
+  const [deletingProposalIds,setDeletingProposalIds] = useState([]);
   const [unseenMatchIds,setUnseenMatchIds] = useState([]);
   const knownMatchIdsRef = useRef(null);
   const audioContextRef = useRef(null);
@@ -532,6 +533,24 @@ function App() {
     else { setNotice('Propuesta rechazada.'); await loadData(); }
   }
 
+  async function deletePendingProposal(proposal) {
+    if (!proposal?.id || proposal.sender_id !== session?.user?.id || proposal.status !== 'pending' || deletingProposalIds.includes(proposal.id)) return;
+    if (!window.confirm('¿Eliminar esta propuesta pendiente? La otra persona ya no podrá aceptarla.')) return;
+    setDeletingProposalIds(previous=>[...previous,proposal.id]);
+    const {error} = await supabase.from('direct_proposals')
+      .delete()
+      .eq('id',proposal.id)
+      .eq('sender_id',session.user.id)
+      .eq('status','pending');
+    setDeletingProposalIds(previous=>previous.filter(id=>id!==proposal.id));
+    if (error) {
+      setNotice(error.message || 'No se pudo eliminar la propuesta. Intentá nuevamente.');
+      return;
+    }
+    setProposals(previous=>previous.filter(item=>item.id!==proposal.id));
+    setNotice('Propuesta pendiente eliminada.');
+  }
+
   async function removeInterest(item) {
     const {error} = await supabase.rpc('record_listing_swipe',{p_listing_id:item.id,p_decision:'dislike'});
     if (error) setNotice(error.message || 'No se pudo quitar de tus intereses.');
@@ -962,7 +981,7 @@ function App() {
         {matches.length===0&&<div className="empty-state"><Handshake size={34}/><h3>Todavía no tenés matches</h3><p>Marcá «Me interesa» en publicaciones. Si la otra persona también se interesa por algo tuyo, aparecerá acá.</p></div>}
         <div className="match-list">{matches.map(m=>{const c=contactMap[m.id];const mine=m.user_one===session.user.id?listings.find(l=>l.id===m.listing_one_id):listings.find(l=>l.id===m.listing_two_id);const theirs=m.user_one===session.user.id?listings.find(l=>l.id===m.listing_two_id):listings.find(l=>l.id===m.listing_one_id);const itemA=mine?.title||'tu publicación';const itemB=theirs?.title||'su publicación';const chatText=encodeURIComponent('¡Hola! Hicimos match en Trueke PRG por «'+itemA+'» y «'+itemB+'». ¿Coordinamos el intercambio?');return <article className="match-card" key={m.id} style={{position:'relative',paddingTop:48}}><button type="button" className="match-delete-btn" title="Eliminar de mi lista" aria-label="Eliminar match" disabled={deletingMatchIds.includes(m.id)} onClick={()=>dismissMatch(m)} style={{position:'absolute',top:10,right:10,display:'inline-flex',alignItems:'center',justifyContent:'center',width:34,height:34,border:'1px solid #f0caca',borderRadius:10,background:'#fff7f7',color:'#b42318',cursor:'pointer'}}><Trash2 size={17}/></button><div className="match-avatar">{(c?.display_name||'M').slice(0,1).toUpperCase()}</div><div className="match-info"><b>{c?.display_name||'Miembro de Trueke'}</b><small>Match confirmado · {new Date(m.created_at).toLocaleDateString('es-AR')}</small><span className="match-items">Artículos del match: <strong>{itemA}</strong> ↔ <strong>{itemB}</strong></span><span>{c?.phone||'Contacto protegido'}</span></div>{c?.phone&&<a className="whatsapp-btn" href={'https://wa.me/'+c.phone.replace(/\D/g,'')+'?text='+chatText} target="_blank" rel="noreferrer"><MessageCircle size={17}/> Abrir chat</a>}</article>})}</div>
         {incoming.length>0&&<><h2 className="subheading">Propuestas recibidas</h2>{incoming.map(p=>{const target=listings.find(item=>item.id===p.listing_id);const offered=listings.find(item=>item.id===p.offered_listing_id);return <article className="proposal-card" key={p.id}><div><b>Nueva propuesta de intercambio</b><p><strong>Te ofrece:</strong> {offered?.title||'Publicación no disponible'} ↔ <strong>Le interesa:</strong> {target?.title||'Tu publicación'}</p><p>{p.message}</p><small>{new Date(p.created_at).toLocaleDateString('es-AR')}</small></div><div className="report-actions"><button className="primary-btn" onClick={()=>acceptProposal(p.id)}><CheckCircle2 size={16}/> Aceptar y hacer match</button><button className="outline-btn" onClick={()=>rejectProposal(p.id)}>Rechazar</button></div></article>})}</>}
-        {outgoing.length>0&&<><h2 className="subheading">Propuestas enviadas</h2>{outgoing.map(p=>{const target=listings.find(item=>item.id===p.listing_id);const offered=listings.find(item=>item.id===p.offered_listing_id);return <article className="proposal-card" key={p.id}><div><b>{p.status==='accepted'?'Aceptada':p.status==='rejected'?'Rechazada':'Pendiente'}</b><p><strong>Ofreciste:</strong> {offered?.title||'Publicación no disponible'} ↔ <strong>Te interesa:</strong> {target?.title||'Publicación no disponible'}</p><p>{p.message}</p></div></article>})}</>}
+        {outgoing.length>0&&<><h2 className="subheading">Propuestas enviadas</h2>{outgoing.map(p=>{const target=listings.find(item=>item.id===p.listing_id);const offered=listings.find(item=>item.id===p.offered_listing_id);return <article className="proposal-card" key={p.id}><div><b>{p.status==='accepted'?'Aceptada':p.status==='rejected'?'Rechazada':'Pendiente'}</b><p><strong>Ofreciste:</strong> {offered?.title||'Publicación no disponible'} ↔ <strong>Te interesa:</strong> {target?.title||'Publicación no disponible'}</p><p>{p.message}</p></div>{p.status==='pending'&&<div className="report-actions"><button type="button" className="ban-btn" disabled={deletingProposalIds.includes(p.id)} onClick={()=>deletePendingProposal(p)}><Trash2 size={15}/> {deletingProposalIds.includes(p.id)?'Eliminando…':'Eliminar propuesta'}</button></div>}</article>})}</>}
         {incoming.length===0&&outgoing.length===0&&<div className="empty-state"><Send size={34}/><h3>Todavía no tenés propuestas</h3><p>Entrá a Mis intereses y proponé un intercambio por algo que te guste.</p><button className="primary-btn" onClick={()=>setPage('interests')}>Ver mis intereses</button></div>}
       </section>}
       {page==='admin'&&profile?.role==='admin'&&<section className="dashboard-section admin-dashboard">
