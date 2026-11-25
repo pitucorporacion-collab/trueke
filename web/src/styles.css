@@ -907,3 +907,21 @@
     overflow-wrap:anywhere;
   }
 }
+
+
+/* Propuestas enviadas: acción de borrar siempre visible también en móvil */
+.matches-dashboard .proposal-card .proposal-delete-btn{
+  display:inline-flex;align-items:center;justify-content:center;gap:7px;
+  width:auto;min-height:38px;padding:9px 13px;
+  border:1px solid #efc8c2;border-radius:8px;
+  background:#fff2ef;color:#a33f32;font-size:12px;font-weight:800;
+  white-space:nowrap;cursor:pointer;
+}
+.matches-dashboard .proposal-card .proposal-delete-btn:disabled{opacity:.6;cursor:wait}
+.proposal-success-notice{
+  display:flex;align-items:center;gap:10px;margin:18px 0;padding:14px 16px;
+  border:1px solid #b9dfc2;border-radius:10px;background:#e8f6eb;
+  color:#216b39;font-size:13px;font-weight:700;line-height:1.5;
+}
+.proposal-success-notice span{flex:1}
+.proposal-success-notice button{display:grid;place-items:center;flex:none;border:0;background:transparent;color:inherit;padding:4px;cursor:pointer}
