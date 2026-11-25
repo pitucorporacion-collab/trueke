@@ -4,3 +4,12 @@
 @media(max-width:560px){.auth-card{padding:27px 22px}.main{padding:20px 14px 10px}.topbar h2{font-size:20px}.topbar .primary{padding:10px 12px;font-size:11px}.welcome{padding:24px 22px;min-height:180px}.welcome-art{font-size:65px;padding:0}.welcome h3{font-size:25px}.section-head{align-items:start;gap:10px}.count{white-space:nowrap}.post-grid{grid-template-columns:1fr}.sidebar{width:60px;padding:17px 6px}.main{margin-left:60px}.sidebar nav button{padding:12px 3px}.empty-panel,.form-panel{padding:20px}.inline-form{flex-direction:column}.admin-row{flex-wrap:wrap}.modal{padding:24px 19px}}
 
 .post-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}.post-actions button{font-size:10px;padding:10px 8px}.post-actions button:disabled{opacity:.55;cursor:not-allowed}.match-row small{display:block;color:#7f8d83;max-width:340px;line-height:1.5;margin-top:4px}
+
+
+/* Evita que la vista de propuestas quede sin desplazamiento, especialmente en móviles/PWA. */
+html, body, #root { min-height: 100%; }
+html, body { overflow-y: auto; }
+body { min-height: 100vh; min-height: 100dvh; -webkit-overflow-scrolling: touch; }
+.app-shell { min-height: 100vh; min-height: 100dvh; height: auto; overflow: visible; }
+.main { min-height: 100vh; min-height: 100dvh; height: auto; overflow: visible; touch-action: pan-y; padding-bottom: calc(40px + env(safe-area-inset-bottom)); }
+.empty-panel { overflow: visible; touch-action: pan-y; }
