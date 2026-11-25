@@ -925,3 +925,5 @@
 }
 .proposal-success-notice span{flex:1}
 .proposal-success-notice button{display:grid;place-items:center;flex:none;border:0;background:transparent;color:inherit;padding:4px;cursor:pointer}
+
+.proposal-contact-pending{display:inline-flex;align-items:center;padding:8px 10px;border-radius:8px;background:#e8f3eb;color:#286b3d;font-size:11px;font-weight:800}
