@@ -870,3 +870,40 @@
 @media(max-width:600px){.account-details-card{padding:17px;margin:19px 0 16px}.account-details-heading b{font-size:17px}.name-review-actions{flex-direction:column-reverse}.name-review-actions>*{width:100%}}
 
 .top-actions .icon-btn{position:relative}.top-actions .icon-btn .notification-dot{position:absolute;top:5px;right:5px;margin:0;width:8px;height:8px;box-shadow:0 0 0 2px #fbfaf6}
+
+
+/* Propuestas e intercambios: scroll propio en móvil para que las propuestas recibidas no queden cortadas. */
+@media(max-width:640px){
+  .app-shell:has(.matches-dashboard){
+    height:100dvh;
+    min-height:0;
+    overflow:hidden;
+    display:flex;
+    flex-direction:column;
+  }
+  .app-shell:has(.matches-dashboard)>main{
+    flex:1 1 auto;
+    min-height:0;
+    height:auto;
+    overflow-y:auto!important;
+    overflow-x:hidden;
+    overscroll-behavior-y:contain;
+    -webkit-overflow-scrolling:touch;
+    touch-action:pan-y;
+  }
+  .matches-dashboard{
+    min-height:max-content;
+    height:auto;
+    overflow:visible;
+    padding-bottom:calc(75px + env(safe-area-inset-bottom));
+  }
+  .matches-dashboard .proposal-card{
+    min-width:0;
+    width:100%;
+  }
+  .matches-dashboard .proposal-card>div{
+    min-width:0;
+    max-width:100%;
+    overflow-wrap:anywhere;
+  }
+}
