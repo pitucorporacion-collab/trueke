@@ -537,18 +537,25 @@ function App() {
     if (!proposal?.id || proposal.sender_id !== session?.user?.id || proposal.status !== 'pending' || deletingProposalIds.includes(proposal.id)) return;
     if (!window.confirm('¿Eliminar esta propuesta pendiente? La otra persona ya no podrá aceptarla.')) return;
     setDeletingProposalIds(previous=>[...previous,proposal.id]);
-    const {error} = await supabase.from('direct_proposals')
+    const {data:deletedRow,error} = await supabase.from('direct_proposals')
       .delete()
       .eq('id',proposal.id)
       .eq('sender_id',session.user.id)
-      .eq('status','pending');
+      .eq('status','pending')
+      .select('id')
+      .maybeSingle();
     setDeletingProposalIds(previous=>previous.filter(id=>id!==proposal.id));
     if (error) {
       setNotice(error.message || 'No se pudo eliminar la propuesta. Intentá nuevamente.');
       return;
     }
+    if (!deletedRow) {
+      setNotice('La propuesta no se eliminó en la base de datos. Actualizá la pantalla e intentá nuevamente.');
+      await loadData();
+      return;
+    }
     setProposals(previous=>previous.filter(item=>item.id!==proposal.id));
-    setNotice('Propuesta pendiente eliminada.');
+    setNotice('Propuesta pendiente eliminada definitivamente.');
   }
 
   async function removeInterest(item) {
