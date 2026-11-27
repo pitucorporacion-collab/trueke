@@ -320,6 +320,8 @@ create policy "owners delete trueke photos" on storage.objects for delete to aut
 -- update public.app_settings set value = '"NUEVO-CODIGO"'::jsonb where key = 'invite_code';
 
 
+grant select, update on public.notifications to authenticated;
+
 -- Notificaciones en tiempo real para el icono de la campana.
 do $$
 begin
