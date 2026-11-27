@@ -89,7 +89,11 @@ export default function App() {
     const { data, error } = await db.from("posts").select("*, profiles(display_name,avatar_url)").eq("active", true).order("created_at", { ascending:false });
     if (!error) setPosts((data || []).map(p => ({...p, display_name:p.profiles?.display_name || "Miembro"})));
   }
-  async function loadNotifications() {\n    const { data } = await db.from("notifications").select("*").order("created_at", {ascending:false}).limit(30);\n    setNotifications(data || []);\n  }\n  async function loadMatches() {
+  async function loadNotifications() {
+    const { data } = await db.from("notifications").select("*").order("created_at", {ascending:false}).limit(30);
+    setNotifications(data || []);
+  }
+  async function loadMatches() {
     const { data } = await db.from("matches").select("*, one:profiles!matches_user_one_fkey(display_name), two:profiles!matches_user_two_fkey(display_name)").order("created_at", {ascending:false});
     setMatches(data || []);
   }
@@ -97,7 +101,26 @@ export default function App() {
     const { data } = await db.from("direct_proposals").select("*, sender:profiles!direct_proposals_sender_id_fkey(display_name), posts(offer,looking_for)").eq("recipient_id",session.user.id).eq("status","pending").order("created_at",{ascending:false});
     setProposals(data || []);
   }
-  useEffect(() => {\n    if (demo || !session?.user || !profile || profile.status !== "active") return;\n    const channel = db.channel("trueke-notifications-" + session.user.id)\n      .on("postgres_changes", {event:"INSERT", schema:"public", table:"notifications", filter:"user_id=eq." + session.user.id}, payload => {\n        setNotifications(prev => [payload.new, ...prev.filter(n => n.id !== payload.new.id)]);\n        try {\n          const AudioCtx = window.AudioContext || window.webkitAudioContext;\n          if (AudioCtx) { const ctx = new AudioCtx(); const oscillator = ctx.createOscillator(); const gain = ctx.createGain(); oscillator.connect(gain); gain.connect(ctx.destination); oscillator.frequency.value = 880; gain.gain.setValueAtTime(0.08, ctx.currentTime); gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.22); oscillator.start(); oscillator.stop(ctx.currentTime + 0.22); oscillator.onended = () => ctx.close(); }\n        } catch (_) {}\n        if (payload.new.type === "proposal_received") loadProposals();\n        if (payload.new.type === "proposal_accepted") loadMatches();\n      }).subscribe();\n    return () => { db.removeChannel(channel); };\n  }, [session, profile, demo]);\n  async function markNotificationsRead() {\n    if (demo || !session?.user) return;\n    const unread = notifications.filter(n => !n.read_at).map(n => n.id);\n    if (unread.length) { await db.from("notifications").update({read_at:new Date().toISOString()}).in("id", unread); setNotifications(prev => prev.map(n => ({...n,read_at:n.read_at || new Date().toISOString()}))); }\n  }\n  async function submitProposal(e) {
+  useEffect(() => {
+    if (demo || !session?.user || !profile || profile.status !== "active") return;
+    const channel = db.channel("trueke-notifications-" + session.user.id)
+      .on("postgres_changes", {event:"INSERT", schema:"public", table:"notifications", filter:"user_id=eq." + session.user.id}, payload => {
+        setNotifications(prev => [payload.new, ...prev.filter(n => n.id !== payload.new.id)]);
+        try {
+          const AudioCtx = window.AudioContext || window.webkitAudioContext;
+          if (AudioCtx) { const ctx = new AudioCtx(); const oscillator = ctx.createOscillator(); const gain = ctx.createGain(); oscillator.connect(gain); gain.connect(ctx.destination); oscillator.frequency.value = 880; gain.gain.setValueAtTime(0.08, ctx.currentTime); gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.22); oscillator.start(); oscillator.stop(ctx.currentTime + 0.22); oscillator.onended = () => ctx.close(); }
+        } catch (_) {}
+        if (payload.new.type === "proposal_received") loadProposals();
+        if (payload.new.type === "proposal_accepted") loadMatches();
+      }).subscribe();
+    return () => { db.removeChannel(channel); };
+  }, [session, profile, demo]);
+  async function markNotificationsRead() {
+    if (demo || !session?.user) return;
+    const unread = notifications.filter(n => !n.read_at).map(n => n.id);
+    if (unread.length) { await db.from("notifications").update({read_at:new Date().toISOString()}).in("id", unread); setNotifications(prev => prev.map(n => ({...n,read_at:n.read_at || new Date().toISOString()}))); }
+  }
+  async function submitProposal(e) {
     e.preventDefault();
     if (!proposalPost || !proposalText.trim()) return;
     if (demo) { setNotice("Propuesta de demostración preparada. En la versión conectada llegará al dueño de la publicación."); setProposalPost(null); setProposalText(""); return; }
