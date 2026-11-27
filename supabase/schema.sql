@@ -71,6 +71,18 @@ create table if not exists public.direct_proposals (
   check (sender_id <> recipient_id)
 );
 
+create table if not exists public.notifications (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references public.profiles(id) on delete cascade,
+  type text not null check (type in ('proposal_received','proposal_accepted')),
+  title text not null,
+  body text not null,
+  proposal_id uuid references public.direct_proposals(id) on delete cascade,
+  match_id uuid references public.matches(id) on delete cascade,
+  read_at timestamptz,
+  created_at timestamptz not null default now()
+);
+
 create table if not exists public.reports (
   id uuid primary key default gen_random_uuid(),
   reporter_id uuid not null references public.profiles(id) on delete cascade,
@@ -140,9 +152,44 @@ begin
   values (a,b,proposal.post_id)
   on conflict (user_one,user_two) do update set created_at = now()
   returning id into created_match;
+  insert into public.notifications(user_id,type,title,body,proposal_id,match_id)
+  values (
+    proposal.sender_id,
+    'proposal_accepted',
+    '¡Aceptaron tu propuesta!',
+    'Tu propuesta fue aceptada. Ya tienen un match y pueden contactarse.',
+    proposal.id,
+    created_match
+  );
   return created_match;
 end;
 $$;
+
+create or replace function public.notify_new_direct_proposal()
+returns trigger language plpgsql security definer set search_path = public
+as $
+declare
+  sender_name text;
+  offered_item text;
+begin
+  select display_name into sender_name from public.profiles where id = new.sender_id;
+  select offer into offered_item from public.posts where id = new.post_id;
+  insert into public.notifications(user_id,type,title,body,proposal_id)
+  values (
+    new.recipient_id,
+    'proposal_received',
+    'Nueva propuesta de trueque',
+    coalesce(sender_name,'Un miembro') || ' te propone un intercambio por: ' || coalesce(offered_item,'tu publicación'),
+    new.id
+  );
+  return new;
+end;
+$;
+
+drop trigger if exists notify_new_direct_proposal_trigger on public.direct_proposals;
+create trigger notify_new_direct_proposal_trigger
+after insert on public.direct_proposals
+for each row execute procedure public.notify_new_direct_proposal();
 
 create or replace function public.handle_new_user()
 returns trigger language plpgsql security definer set search_path = public
@@ -202,6 +249,7 @@ alter table public.matches enable row level security;
 alter table public.messages enable row level security;
 alter table public.reports enable row level security;
 alter table public.direct_proposals enable row level security;
+alter table public.notifications enable row level security;
 
 drop policy if exists "admins manage settings" on public.app_settings;
 create policy "admins manage settings" on public.app_settings for all using (public.current_user_is_admin()) with check (public.current_user_is_admin());
@@ -236,6 +284,11 @@ create policy "match participants messages read" on public.messages for select u
 drop policy if exists "match participants send messages" on public.messages;
 create policy "match participants send messages" on public.messages for insert with check (sender_id = auth.uid() and exists(select 1 from public.matches m where m.id = match_id and auth.uid() in (m.user_one,m.user_two)) and public.current_user_is_active());
 
+drop policy if exists "users read own notifications" on public.notifications;
+create policy "users read own notifications" on public.notifications for select using (user_id = auth.uid());
+drop policy if exists "users update own notifications" on public.notifications;
+create policy "users update own notifications" on public.notifications for update using (user_id = auth.uid()) with check (user_id = auth.uid());
+
 drop policy if exists "proposal participants read" on public.direct_proposals;
 create policy "proposal participants read" on public.direct_proposals for select using (sender_id = auth.uid() or recipient_id = auth.uid() or public.current_user_is_admin());
 drop policy if exists "active users send proposals" on public.direct_proposals;
@@ -265,3 +318,19 @@ create policy "owners delete trueke photos" on storage.objects for delete to aut
 
 -- Para cambiar el código general desde SQL:
 -- update public.app_settings set value = '"NUEVO-CODIGO"'::jsonb where key = 'invite_code';
+
+
+-- Notificaciones en tiempo real para el icono de la campana.
+do $$
+begin
+  if exists (select 1 from pg_publication where pubname = 'supabase_realtime')
+     and not exists (
+       select 1 from pg_publication_tables
+       where pubname = 'supabase_realtime'
+         and schemaname = 'public'
+         and tablename = 'notifications'
+     ) then
+    alter publication supabase_realtime add table public.notifications;
+  end if;
+end;
+$$;
