@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { createClient } from "@supabase/supabase-js";
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || import.meta.env.VITE_SUPABASE_ANON_KEY;
 const db = supabaseUrl && supabaseKey ? createClient(supabaseUrl, supabaseKey) : null;
 const demoSeed = [
   { id:"demo-1", display_name:"María", offer:"Mesa de madera en buen estado", looking_for:"Una bicicleta o algo de jardinería", description:"Mesa firme, ideal para comedor. Se retira por Río Grande.", image_url:"", user_id:"demo-maria" },
