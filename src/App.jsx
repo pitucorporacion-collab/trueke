@@ -83,11 +83,11 @@ export default function App() {
 
   async function loadProfile(id) {
     const { data } = await db.from("profiles").select("*").eq("id", id).maybeSingle();
-    setProfile(data ? { ...data, status: data.status || (data.is_active ? "active" : "blocked") } : null);
+    setProfile(data ? { ...data, status: data.is_active ? "active" : "blocked" } : null);
   }
   async function loadPosts() {
-    const { data, error } = await db.from("posts").select("*, profiles(display_name,avatar_url)").eq("active", true).order("created_at", { ascending:false });
-    if (!error) setPosts((data || []).map(p => ({...p, display_name:p.profiles?.display_name || "Miembro"})));
+    const { data, error } = await db.from("listings").select("*, profiles!listings_user_id_fkey(display_name)").eq("status", "published").order("created_at", { ascending:false });
+    if (!error) setPosts((data || []).map(p => ({...p, offer:p.title, image_url:"", display_name:p.profiles?.display_name || "Miembro"})));
   }
   async function loadNotifications() {
     const { data } = await db.from("notifications").select("*").order("created_at", {ascending:false}).limit(30);
@@ -98,7 +98,7 @@ export default function App() {
     setMatches(data || []);
   }
   async function loadProposals() {
-    const { data } = await db.from("direct_proposals").select("*, sender:profiles!direct_proposals_sender_id_fkey(display_name), posts(offer,looking_for)").eq("recipient_id",session.user.id).eq("status","pending").order("created_at",{ascending:false});
+    const { data } = await db.from("direct_proposals").select("*, sender:profiles!direct_proposals_sender_id_fkey(display_name), listing:listings!direct_proposals_listing_id_fkey(title,looking_for)").eq("recipient_id",session.user.id).eq("status","pending").order("created_at",{ascending:false});
     setProposals(data || []);
   }
   useEffect(() => {
@@ -124,13 +124,13 @@ export default function App() {
     e.preventDefault();
     if (!proposalPost || !proposalText.trim()) return;
     if (demo) { setNotice("Propuesta de demostración preparada. En la versión conectada llegará al dueño de la publicación."); setProposalPost(null); setProposalText(""); return; }
-    const { error } = await db.from("direct_proposals").insert({post_id:proposalPost.id,sender_id:session.user.id,recipient_id:proposalPost.user_id,message:proposalText.trim()});
+    const { error } = await db.from("direct_proposals").insert({listing_id:proposalPost.id,sender_id:session.user.id,recipient_id:proposalPost.user_id,message:proposalText.trim()});
     if (error) setNotice(error.message); else setNotice("Propuesta enviada. Cuando la acepten, se habilitará el chat.");
     setProposalPost(null); setProposalText("");
   }
   async function acceptProposal(proposal) {
     if (demo) { setProposals(proposals.filter(p=>p.id!==proposal.id)); setMatches([...matches,{id:"demo-match-"+Date.now(),one:{display_name:"Vos"},two:{display_name:proposal.sender?.display_name||"Miembro"}}]); setNotice("Propuesta aceptada. Ya pueden conversar."); return; }
-    const { error } = await db.rpc("accept_direct_proposal",{p_proposal_id:proposal.id});
+    const { error } = await db.rpc("accept_trueke_proposal",{p_proposal_id:proposal.id});
     if (error) setNotice(error.message); else { setNotice("¡Trueque confirmado! Ya tienen un match. Podés contactar desde Matches."); await loadProposals(); await loadMatches(); await loadNotifications(); }
   }
   async function loadAdmin() {
@@ -188,7 +188,7 @@ export default function App() {
         if (uploadError) { setNotice(uploadError.message); return; }
         image_url = db.storage.from("trueke-photos").getPublicUrl(path).data.publicUrl;
       }
-      const { error } = await db.from("posts").insert({user_id:session.user.id,offer,looking_for:looking,description,image_url});
+      const { error } = await db.from("listings").insert({user_id:session.user.id,title:offer,looking_for:looking,description,status:"published"});
       if (error) { setNotice(error.message); return; }
       await loadPosts();
     }
@@ -200,7 +200,7 @@ export default function App() {
       setNotice("¡Interés registrado! En la versión conectada se avisará a la otra persona.");
       return;
     }
-    const { error } = await db.from("interests").insert({post_id:post.id,from_user:session.user.id});
+    const { error } = await db.from("listing_interests").insert({listing_id:post.id,user_id:session.user.id});
     if (error && !error.message.includes("duplicate")) setNotice(error.message);
     else { setMyInterests(prev => [...prev,post.id]); setNotice("Le avisamos a la otra persona."); await loadMatches(); }
   }
@@ -270,7 +270,7 @@ export default function App() {
     e.preventDefault();
     if (!reportPost || !reportReason.trim()) return;
     if (!demo) {
-      const {error}=await db.from("reports").insert({reporter_id:session.user.id,post_id:reportPost.id,reported_user:reportPost.user_id,reason:reportReason.trim()});
+      const {error}=await db.from("reports").insert({reporter_id:session.user.id,listing_id:reportPost.id,reported_user:reportPost.user_id,reason:reportReason.trim().slice(0,120),listing_title:reportPost.offer || ""});
       if (error) setNotice(error.message); else setNotice("Denuncia enviada al administrador.");
     } else setNotice("Denuncia registrada en la demostración.");
     setReportPost(null); setReportReason("");
@@ -281,7 +281,7 @@ export default function App() {
   }
   async function hidePost(post) {
     if (demo) { setPosts(posts.filter(p=>p.id!==post.id)); return; }
-    const {error}=await db.from("posts").update({active:false}).eq("id",post.id);
+    const {error}=await db.from("listings").update({status:"closed"}).eq("id",post.id);
     if(error) setNotice(error.message); else {setNotice("Publicación retirada.");loadPosts();}
   }
   async function saveInvite(e) {
